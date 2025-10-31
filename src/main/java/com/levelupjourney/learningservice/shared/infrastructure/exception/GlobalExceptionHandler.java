@@ -78,6 +78,25 @@ public class GlobalExceptionHandler {
         
         return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
+    
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflictException(
+            ConflictException ex,
+            HttpServletRequest request
+    ) {
+        log.error("Conflict: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "CONFLICT"
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(

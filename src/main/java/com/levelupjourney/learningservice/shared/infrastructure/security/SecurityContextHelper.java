@@ -1,5 +1,6 @@
 package com.levelupjourney.learningservice.shared.infrastructure.security;
 
+import com.levelupjourney.learningservice.shared.infrastructure.exception.UnauthorizedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -66,5 +67,26 @@ public class SecurityContextHelper {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return authentication != null && authentication.isAuthenticated() && 
                !authentication.getPrincipal().equals("anonymousUser");
+    }
+    
+    public void requireAuthentication() {
+        if (!isAuthenticated()) {
+            throw new UnauthorizedException("Authentication required");
+        }
+    }
+    
+    public void requireRole(String role) {
+        if (!hasRole(role)) {
+            throw new UnauthorizedException("Role " + role + " required");
+        }
+    }
+    
+    public void requireAnyRole(String... roles) {
+        for (String role : roles) {
+            if (hasRole(role)) {
+                return;
+            }
+        }
+        throw new UnauthorizedException("One of the following roles required: " + String.join(", ", roles));
     }
 }
