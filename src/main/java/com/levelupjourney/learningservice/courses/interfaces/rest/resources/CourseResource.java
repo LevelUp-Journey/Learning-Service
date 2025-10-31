@@ -1,5 +1,6 @@
 package com.levelupjourney.learningservice.courses.interfaces.rest.resources;
 
+import com.levelupjourney.learningservice.courses.domain.model.valueobjects.DifficultyLevel;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.GuideSummaryResource;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.TopicSummaryResource;
 import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
@@ -15,6 +16,7 @@ public record CourseResource(
         String description,
         String coverImage,
         EntityStatus status,
+        DifficultyLevel difficultyLevel,
         Integer likesCount,
         Set<String> authorIds,
         Set<TopicSummaryResource> topics,

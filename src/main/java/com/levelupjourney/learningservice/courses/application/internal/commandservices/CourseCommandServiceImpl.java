@@ -67,7 +67,8 @@ public class CourseCommandServiceImpl implements CourseCommandService {
                 command.description(),
                 command.coverImage(),
                 authorIds,
-                topics
+                topics,
+                command.difficultyLevel()
         );
         
         return courseRepository.save(course);
@@ -103,6 +104,11 @@ public class CourseCommandServiceImpl implements CourseCommandService {
                 throw new ResourceNotFoundException("One or more topics not found");
             }
             course.setTopics(topics);
+        }
+        
+        // Update difficulty level if provided
+        if (command.difficultyLevel() != null) {
+            course.updateDifficultyLevel(command.difficultyLevel());
         }
         
         return courseRepository.save(course);

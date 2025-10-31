@@ -41,6 +41,7 @@ public class CourseResourceAssembler {
                 course.getDescription(),
                 course.getCoverImage(),
                 course.getStatus(),
+                course.getDifficultyLevel(),
                 course.getLikesCount(),
                 course.getAuthorIds(),
                 topicResources,
@@ -56,7 +57,8 @@ public class CourseResourceAssembler {
                 resource.description(),
                 resource.coverImage(),
                 resource.authorIds(),
-                resource.topicIds()
+                resource.topicIds(),
+                resource.difficultyLevel()
         );
     }
     
@@ -66,7 +68,8 @@ public class CourseResourceAssembler {
                 resource.title(),
                 resource.description(),
                 resource.coverImage(),
-                resource.topicIds()
+                resource.topicIds(),
+                resource.difficultyLevel()
         );
     }
     

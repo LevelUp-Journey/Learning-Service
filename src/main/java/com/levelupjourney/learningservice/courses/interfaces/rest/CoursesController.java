@@ -51,6 +51,7 @@ public class CoursesController {
                     - Anonymous users see only PUBLISHED courses
                     - Authenticated users see PUBLISHED + their DRAFT courses
                     - Filter by title (partial match), topics, authors, or status
+                    - Courses include difficulty level: BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
                     - Example: /api/v1/courses?title=Java&topicIds=uuid1,uuid2&status=PUBLISHED
                     """
     )
@@ -87,6 +88,7 @@ public class CoursesController {
                     - Authors/ADMIN can see their DRAFT courses
                     - Returns 404 if course not found or not accessible
                     - Includes full guide list with metadata
+                    - Course includes difficulty level: BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
                     """
     )
     @ApiResponses(value = {
@@ -114,6 +116,7 @@ public class CoursesController {
                     - Course starts with no associated guides (add via /courses/{id}/guides/{guideId})
                     - Can have multiple authors and topics
                     - totalPages calculated automatically from associated guides
+                    - Difficulty level: BEGINNER (default), INTERMEDIATE, ADVANCED, EXPERT
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
@@ -140,11 +143,12 @@ public class CoursesController {
     @Operation(
             summary = "Update course details",
             description = """
-                    Updates course title, description, or metadata.
+                    Updates course title, description, difficulty level, or metadata.
                     - Only course authors or ADMIN can update
                     - Cannot update status (use PUT /courses/{id}/status)
                     - Cannot update guides association (use POST/DELETE /courses/{id}/guides/{guideId})
                     - Authors can be updated via dedicated endpoint
+                    - Difficulty level: BEGINNER, INTERMEDIATE, ADVANCED, EXPERT
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
     )

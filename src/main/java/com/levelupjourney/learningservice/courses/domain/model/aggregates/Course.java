@@ -1,5 +1,6 @@
 package com.levelupjourney.learningservice.courses.domain.model.aggregates;
 
+import com.levelupjourney.learningservice.courses.domain.model.valueobjects.DifficultyLevel;
 import com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide;
 import com.levelupjourney.learningservice.shared.domain.model.AuditableModel;
 import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
@@ -37,6 +38,10 @@ public class Course extends AuditableModel {
     @Column(nullable = false)
     private EntityStatus status = EntityStatus.DRAFT;
     
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty_level", nullable = false)
+    private DifficultyLevel difficultyLevel = DifficultyLevel.BEGINNER;
+    
     @Column(name = "likes_count")
     private Integer likesCount = 0;
     
@@ -61,7 +66,7 @@ public class Course extends AuditableModel {
     )
     private List<Guide> guides = new ArrayList<>();
     
-    public Course(String title, String description, String coverImage, Set<String> authorIds, Set<Topic> topics) {
+    public Course(String title, String description, String coverImage, Set<String> authorIds, Set<Topic> topics, DifficultyLevel difficultyLevel) {
         validateTitle(title);
         validateAuthorIds(authorIds);
         
@@ -70,6 +75,7 @@ public class Course extends AuditableModel {
         this.coverImage = coverImage;
         this.authorIds = authorIds != null ? new HashSet<>(authorIds) : new HashSet<>();
         this.topics = topics != null ? new HashSet<>(topics) : new HashSet<>();
+        this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.BEGINNER;
         this.status = EntityStatus.DRAFT;
     }
     
@@ -91,6 +97,13 @@ public class Course extends AuditableModel {
             throw new IllegalArgumentException("Status cannot be null");
         }
         this.status = status;
+    }
+    
+    public void updateDifficultyLevel(DifficultyLevel difficultyLevel) {
+        if (difficultyLevel == null) {
+            throw new IllegalArgumentException("Difficulty level cannot be null");
+        }
+        this.difficultyLevel = difficultyLevel;
     }
     
     public void addAuthor(String authorId, int maxAuthors) {

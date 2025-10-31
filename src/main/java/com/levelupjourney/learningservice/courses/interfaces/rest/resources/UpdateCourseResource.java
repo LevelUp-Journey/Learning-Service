@@ -1,5 +1,6 @@
 package com.levelupjourney.learningservice.courses.interfaces.rest.resources;
 
+import com.levelupjourney.learningservice.courses.domain.model.valueobjects.DifficultyLevel;
 import jakarta.validation.constraints.Size;
 
 import java.util.Set;
@@ -13,6 +14,8 @@ public record UpdateCourseResource(
         String description,
         
         String coverImage,
+        
+        DifficultyLevel difficultyLevel,
         
         Set<UUID> topicIds
 ) {
