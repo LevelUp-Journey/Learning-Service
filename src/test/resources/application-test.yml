@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  h2:
+    console:
+      enabled: true
+
+jwt:
+  secret: ThisIsAVeryLongSecretKeyForJWTTokenGenerationInTestEnvironmentToEnsureSecurityAndProperFunctioningOfTheAuthentication
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+application:
+  max-authors: 5
+  pagination:
+    default-page-size: 10
+    max-page-size: 100
+
+logging:
+  level:
+    com.levelupjourney: DEBUG
+    org.springframework.web: DEBUG
