@@ -1,13 +1,12 @@
 package com.levelupjourney.learningservice.shared.infrastructure.security;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +14,7 @@ import java.util.Map;
 
 /**
  * Test utility for generating JWT tokens with specific roles
+ * Uses the same signing method as JwtTokenProvider for consistency
  */
 @Component
 public class TestJwtTokenProvider {
@@ -23,7 +23,9 @@ public class TestJwtTokenProvider {
     private static final long EXPIRATION_TIME = 86400000; // 24 hours
     
     public TestJwtTokenProvider(@Value("${jwt.secret}") String secret) {
-        this.SECRET_KEY = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        // Use BASE64 decoding like JwtTokenProvider does
+        byte[] keyBytes = Decoders.BASE64.decode(secret);
+        this.SECRET_KEY = Keys.hmacShaKeyFor(keyBytes);
     }
     
     public String generateToken(String userId, String username, List<String> roles) {
@@ -32,10 +34,10 @@ public class TestJwtTokenProvider {
         claims.put("roles", roles);
         
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .claims(claims)
+                .subject(username)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .signWith(SECRET_KEY)
                 .compact();
     }

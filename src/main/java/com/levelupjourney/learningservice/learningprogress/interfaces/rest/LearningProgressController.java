@@ -15,6 +15,10 @@ import com.levelupjourney.learningservice.learningprogress.interfaces.rest.resou
 import com.levelupjourney.learningservice.learningprogress.interfaces.rest.transform.LearningProgressResourceAssembler;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.ResourceNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -46,10 +50,29 @@ public class LearningProgressController {
     @PostMapping
     @Operation(
             summary = "Start learning",
-            description = "Initialize learning progress for a guide or course. Returns 409 if progress already exists.",
+            description = """
+                    Initializes learning progress tracking for a guide or course.
+                    - Creates progress record with 0% completion
+                    - Supports both GUIDE and COURSE entity types
+                    - Users can only start learning for themselves
+                    - Returns 409 Conflict if progress already exists
+                    - Automatically tracks totalItems based on entity (pages for guide, guides for course)
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
-    public ResponseEntity<LearningProgressResource> startLearning(@Valid @RequestBody StartLearningResource resource) {
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Learning progress created successfully",
+                    content = @Content(schema = @Schema(implementation = LearningProgressResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input or entity not accessible"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot start learning for other users"),
+            @ApiResponse(responseCode = "404", description = "Entity (guide or course) not found"),
+            @ApiResponse(responseCode = "409", description = "Progress already exists for this user and entity")
+    })
+    public ResponseEntity<LearningProgressResource> startLearning(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Start learning data (userId, entityType, entityId)", required = true)
+            @Valid @RequestBody StartLearningResource resource
+    ) {
         StartLearningCommand command = assembler.toCommandFromResource(resource);
         LearningProgress progress = commandService.handle(command);
         
@@ -60,12 +83,29 @@ public class LearningProgressController {
     
     @PutMapping("/{id}")
     @Operation(
-            summary = "Update progress",
-            description = "Update completed items and reading time. Progress is automatically completed when all items are done.",
+            summary = "Update learning progress",
+            description = """
+                    Updates progress completion and reading time.
+                    - Updates completedItems count (e.g., pages read)
+                    - Adds to totalReadingTime (in minutes)
+                    - Users can only update their own progress
+                    - Progress automatically marked as COMPLETED when completedItems equals totalItems
+                    - completionPercentage is auto-calculated
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Progress updated successfully",
+                    content = @Content(schema = @Schema(implementation = LearningProgressResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input (completedItems exceeds totalItems, negative values, etc.)"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot update other users' progress"),
+            @ApiResponse(responseCode = "404", description = "Progress not found")
+    })
     public ResponseEntity<LearningProgressResource> updateProgress(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Progress UUID", required = true)
             @PathVariable UUID id,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Updated progress data (completedItems, readingTime)", required = true)
             @Valid @RequestBody UpdateProgressResource resource) {
         
         UpdateProgressCommand command = assembler.toCommandFromResource(id, resource);
@@ -76,11 +116,28 @@ public class LearningProgressController {
     
     @PostMapping("/{id}/complete")
     @Operation(
-            summary = "Complete progress",
-            description = "Manually mark learning progress as completed.",
+            summary = "Manually complete progress",
+            description = """
+                    Marks learning progress as completed regardless of item count.
+                    - Sets status to COMPLETED
+                    - Sets completionPercentage to 100%
+                    - Records completion timestamp
+                    - Users can only complete their own progress
+                    - Useful for marking entire course/guide as done
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
-    public ResponseEntity<LearningProgressResource> completeProgress(@PathVariable UUID id) {
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Progress marked as completed",
+                    content = @Content(schema = @Schema(implementation = LearningProgressResource.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot complete other users' progress"),
+            @ApiResponse(responseCode = "404", description = "Progress not found")
+    })
+    public ResponseEntity<LearningProgressResource> completeProgress(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Progress UUID", required = true)
+            @PathVariable UUID id
+    ) {
         CompleteProgressCommand command = assembler.toCompleteCommand(id);
         LearningProgress progress = commandService.handle(command);
         
@@ -89,13 +146,31 @@ public class LearningProgressController {
     
     @GetMapping
     @Operation(
-            summary = "Get progress for entity",
-            description = "Get learning progress for a specific guide or course.",
+            summary = "Get progress for specific entity",
+            description = """
+                    Retrieves learning progress for a specific guide or course.
+                    - Query parameters: userId, entityType (GUIDE or COURSE), entityId
+                    - Users can only view their own progress
+                    - ADMIN can view any user's progress
+                    - Returns 404 if no progress found for this combination
+                    - Example: /api/v1/progress?userId=user123&entityType=GUIDE&entityId=uuid
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Progress retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = LearningProgressResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid parameters"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot view other users' progress without ADMIN role"),
+            @ApiResponse(responseCode = "404", description = "Progress not found")
+    })
     public ResponseEntity<LearningProgressResource> getProgress(
+            @io.swagger.v3.oas.annotations.Parameter(description = "User ID", required = true)
             @RequestParam String userId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Entity type (GUIDE or COURSE)", required = true)
             @RequestParam LearningEntityType entityType,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Entity UUID (guide or course ID)", required = true)
             @RequestParam UUID entityId) {
         
         GetProgressQuery query = new GetProgressQuery(userId, entityType, entityId);
@@ -107,11 +182,26 @@ public class LearningProgressController {
     
     @GetMapping("/user/{userId}")
     @Operation(
-            summary = "Get user progress",
-            description = "Get all learning progress for a user.",
+            summary = "Get all progress for user",
+            description = """
+                    Retrieves all learning progress records for a specific user.
+                    - Includes both GUIDE and COURSE progress
+                    - Shows IN_PROGRESS and COMPLETED items
+                    - Users can only view their own progress
+                    - ADMIN can view any user's progress
+                    - Useful for student dashboard showing all active learning
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
-    public ResponseEntity<List<LearningProgressResource>> getUserProgress(@PathVariable String userId) {
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Progress list retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - cannot view other users' progress without ADMIN role")
+    })
+    public ResponseEntity<List<LearningProgressResource>> getUserProgress(
+            @io.swagger.v3.oas.annotations.Parameter(description = "User ID", required = true)
+            @PathVariable String userId
+    ) {
         GetUserProgressQuery query = new GetUserProgressQuery(userId);
         List<LearningProgress> progressList = queryService.handle(query);
         

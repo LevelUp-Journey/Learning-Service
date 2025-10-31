@@ -19,7 +19,8 @@ spring:
       enabled: true
 
 jwt:
-  secret: ThisIsAVeryLongSecretKeyForJWTTokenGenerationInTestEnvironmentToEnsureSecurityAndProperFunctioningOfTheAuthentication
+  # Base64 encoded secret for testing (same format as production)
+  secret: VGhpc0lzQVZlcnlMb25nU2VjcmV0S2V5Rm9ySldUVG9rZW5HZW5lcmF0aW9uSW5UZXN0RW52aXJvbm1lbnRUb0Vuc3VyZVNlY3VyaXR5QW5kUHJvcGVyRnVuY3Rpb25pbmc=
   expiration: 86400000
   refresh-expiration: 604800000
 

@@ -46,10 +46,10 @@ public class SecurityConfiguration {
                                 "/actuator/**"
                         ).permitAll()
                         
-                        // Public read endpoints for guides and courses
-                        .requestMatchers(HttpMethod.GET, "/guides/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/courses/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/topics/**").permitAll()
+                        // Public read endpoints for guides, courses, and topics
+                        .requestMatchers(HttpMethod.GET, "/api/v1/guides/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/topics/**").permitAll()
                         
                         // All other requests require authentication
                         .anyRequest().authenticated()

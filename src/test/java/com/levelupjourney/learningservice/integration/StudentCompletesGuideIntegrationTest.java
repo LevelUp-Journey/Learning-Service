@@ -120,8 +120,8 @@ public class StudentCompletesGuideIntegrationTest {
                         .param("status", "PUBLISHED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data[0].title").value("Introduction to Java"));
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content[0].title").value("Introduction to Java"));
         
         // STEP 2: Student selects guide and gets all details
         mockMvc.perform(get("/api/v1/guides/" + guideId))
@@ -259,10 +259,13 @@ public class StudentCompletesGuideIntegrationTest {
         StartLearningResource startLearning = new StartLearningResource(
                 studentUserId, LearningEntityType.GUIDE, UUID.randomUUID()
         );
-        
+
+        // Spring Security returns 403 Forbidden for anonymous users (not 401)
+        // Note: 401 is returned when credentials are provided but invalid,
+        // 403 is returned when no credentials are provided (anonymous access)
         mockMvc.perform(post("/api/v1/progress")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(startLearning)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden()); // Spring Security default for anonymous users
     }
 }

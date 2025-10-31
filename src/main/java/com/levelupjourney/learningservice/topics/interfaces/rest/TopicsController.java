@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/topics")
+@RequestMapping("/api/v1/topics")
 @RequiredArgsConstructor
 @Tag(name = "Topics", description = "Topic management endpoints")
 public class TopicsController {

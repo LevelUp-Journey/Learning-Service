@@ -36,7 +36,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/guides")
+@RequestMapping("/api/v1/guides")
 @RequiredArgsConstructor
 @Tag(name = "Guides", description = "Learning guides management")
 public class GuidesController {
@@ -49,17 +49,27 @@ public class GuidesController {
 
     @GetMapping
     @Operation(
-            summary = "Search guides",
-            description = "Search guides with optional filters. Public guides are visible to all users."
+            summary = "Search guides with filters",
+            description = """
+                    Search and filter guides by title, topics, and authors.
+                    - Anonymous users: Only PUBLISHED guides are visible
+                    - Authenticated users: Can see PUBLISHED and their own DRAFT guides
+                    - Supports pagination with page, size, and sort parameters
+                    Example: /api/v1/guides?title=Java&topicIds=uuid1,uuid2&page=0&size=20&sort=createdAt,desc
+                    """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Guides retrieved successfully",
+            @ApiResponse(responseCode = "200", description = "Guides retrieved successfully (paginated)",
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
     public ResponseEntity<Page<GuideResource>> searchGuides(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by title (partial match, case-insensitive)")
             @RequestParam(required = false) String title,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by topic IDs (comma-separated UUIDs)")
             @RequestParam(required = false) Set<UUID> topicIds,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by author IDs (comma-separated)")
             @RequestParam(required = false) Set<String> authorIds,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
         // For non-authenticated users, only show PUBLISHED
@@ -77,15 +87,23 @@ public class GuidesController {
 
     @GetMapping("/{guideId}")
     @Operation(
-            summary = "Get guide by ID",
-            description = "Retrieves a guide with its pages. Visibility depends on status and user permissions."
+            summary = "Get guide by ID with pages",
+            description = """
+                    Retrieves a guide with all its pages.
+                    - PUBLISHED guides: Accessible to everyone
+                    - DRAFT guides: Only accessible to authors
+                    - Returns 404 if guide doesn't exist or user doesn't have access
+                    """
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Guide found",
                     content = @Content(schema = @Schema(implementation = GuideResource.class))),
             @ApiResponse(responseCode = "404", description = "Guide not found or not accessible")
     })
-    public ResponseEntity<GuideResource> getGuideById(@PathVariable UUID guideId) {
+    public ResponseEntity<GuideResource> getGuideById(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId
+    ) {
         var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
 
@@ -101,18 +119,27 @@ public class GuidesController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_TEACHER')")
     @Operation(
-            summary = "Create guide",
-            description = "Creates a new guide. Requires ADMIN or TEACHER role.",
+            summary = "Create a new guide",
+            description = """
+                    Creates a new learning guide with initial DRAFT status.
+                    - Requires TEACHER or ADMIN role
+                    - Guide starts with 0 pages (add pages separately)
+                    - Can have multiple authors and topics
+                    - pagesCount is automatically calculated when pages are added
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Guide created successfully",
                     content = @Content(schema = @Schema(implementation = GuideResource.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions")
+            @ApiResponse(responseCode = "400", description = "Invalid input or validation error"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions (requires TEACHER or ADMIN)")
     })
-    public ResponseEntity<GuideResource> createGuide(@Valid @RequestBody CreateGuideResource resource) {
+    public ResponseEntity<GuideResource> createGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide creation data", required = true)
+            @Valid @RequestBody CreateGuideResource resource
+    ) {
         var command = GuideResourceAssembler.toCommandFromResource(resource);
         var guide = guideCommandService.handle(command)
                 .orElseThrow(() -> new RuntimeException("Failed to create guide"));
@@ -124,19 +151,28 @@ public class GuidesController {
     @PutMapping("/{guideId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(
-            summary = "Update guide",
-            description = "Updates a guide. Only authors and admins can update.",
+            summary = "Update guide details",
+            description = """
+                    Updates guide title, description, or other metadata.
+                    - Only guide authors or ADMIN can update
+                    - Cannot update status (use PUT /guides/{guideId}/status)
+                    - Cannot update pages (use page endpoints)
+                    - Authors and topics can be updated via dedicated endpoints
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Guide updated successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden - not an author or admin"),
+            @ApiResponse(responseCode = "200", description = "Guide updated successfully",
+                    content = @Content(schema = @Schema(implementation = GuideResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input or validation error"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
             @ApiResponse(responseCode = "404", description = "Guide not found")
     })
     public ResponseEntity<GuideResource> updateGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Updated guide data", required = true)
             @Valid @RequestBody UpdateGuideResource resource
     ) {
         var command = GuideResourceAssembler.toCommandFromResource(guideId, resource);
@@ -151,14 +187,31 @@ public class GuidesController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Update guide status",
-            description = "Updates guide status (DRAFT, PUBLISHED, ARCHIVED, etc.). Only authors and admins.",
+            description = """
+                    Updates the publication status of a guide.
+                    - Supported statuses: DRAFT, PUBLISHED, ARCHIVED
+                    - Only guide authors or ADMIN can change status
+                    - PUBLISHED guides become visible to all users
+                    - DRAFT guides are only visible to authors and admins
+                    - Status transitions may have validation rules
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Guide status updated successfully",
+                    content = @Content(schema = @Schema(implementation = GuideResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid status or validation error"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Guide not found")
+    })
     public ResponseEntity<GuideResource> updateGuideStatus(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @RequestParam EntityStatus status
+            @io.swagger.v3.oas.annotations.Parameter(description = "New status data", required = true)
+            @RequestBody @Valid UpdateGuideStatusResource statusResource
     ) {
-        var command = new UpdateGuideStatusCommand(guideId, status);
+        var command = new UpdateGuideStatusCommand(guideId, statusResource.status());
         var guide = guideCommandService.handle(command)
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
 
@@ -170,11 +223,28 @@ public class GuidesController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Update guide authors",
-            description = "Updates the list of guide authors. Only current authors and admins.",
+            description = """
+                    Replaces the entire list of guide authors.
+                    - Only current authors or ADMIN can update authors
+                    - Maximum 5 authors per guide
+                    - At least one author must remain
+                    - Removing yourself as author requires another author to exist
+                    - All author IDs must correspond to existing users
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Guide authors updated successfully",
+                    content = @Content(schema = @Schema(implementation = GuideResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input (exceeds max authors, empty list, etc.)"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Guide not found or author ID not found")
+    })
     public ResponseEntity<GuideResource> updateGuideAuthors(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Set of author user IDs (max 5)", required = true)
             @RequestBody Set<String> authorIds
     ) {
         var command = new UpdateGuideAuthorsCommand(guideId, authorIds);
@@ -189,16 +259,26 @@ public class GuidesController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Delete guide",
-            description = "Soft deletes a guide. Only authors and admins.",
+            description = """
+                    Soft deletes a guide (sets deleted flag, preserves data).
+                    - Only guide authors or ADMIN can delete
+                    - Deleted guides are hidden from all queries
+                    - Associated pages are also marked as deleted
+                    - Learning progress entries remain for historical tracking
+                    - This is a soft delete - data is not physically removed
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Guide deleted successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
             @ApiResponse(responseCode = "404", description = "Guide not found")
     })
-    public ResponseEntity<Void> deleteGuide(@PathVariable UUID guideId) {
+    public ResponseEntity<Void> deleteGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId
+    ) {
         guideCommandService.handle(new DeleteGuideCommand(guideId));
         return ResponseEntity.noContent().build();
     }
@@ -206,8 +286,23 @@ public class GuidesController {
     // ==================== PAGES ENDPOINTS ====================
 
     @GetMapping("/{guideId}/pages")
-    @Operation(summary = "Get all pages of a guide", description = "Lists all pages in order")
-    public ResponseEntity<List<PageResource>> getGuidePages(@PathVariable UUID guideId) {
+    @Operation(
+            summary = "Get all pages of a guide",
+            description = """
+                    Lists all pages of a guide in order.
+                    - Pages are returned sorted by `order` field
+                    - Anonymous users can see pages of PUBLISHED guides
+                    - Authors/admins can see pages of their DRAFT guides
+                    - Returns 404 if guide not found or not accessible
+                    """)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Pages retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "Guide not found or not accessible")
+    })
+    public ResponseEntity<List<PageResource>> getGuidePages(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId
+    ) {
         // Verify guide exists and is accessible
         var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
@@ -225,9 +320,24 @@ public class GuidesController {
     }
 
     @GetMapping("/{guideId}/pages/{pageId}")
-    @Operation(summary = "Get specific page", description = "Retrieves a specific page by ID")
+    @Operation(
+            summary = "Get specific page details",
+            description = """
+                    Retrieves a specific page by its ID.
+                    - Verifies page belongs to the specified guide
+                    - Anonymous users can see pages of PUBLISHED guides
+                    - Authors/admins can see pages of their DRAFT guides
+                    - Returns 404 if page not found, wrong guide, or guide not accessible
+                    """)
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Page retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = PageResource.class))),
+            @ApiResponse(responseCode = "404", description = "Page not found or guide not accessible")
+    })
     public ResponseEntity<PageResource> getPage(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Page UUID", required = true)
             @PathVariable UUID pageId
     ) {
         var page = pageQueryService.handle(pageId)
@@ -250,19 +360,30 @@ public class GuidesController {
     @PostMapping("/{guideId}/pages")
     @PreAuthorize("isAuthenticated()")
     @Operation(
-            summary = "Create page",
-            description = "Adds a new page to the guide. Only authors and admins.",
+            summary = "Create a new page",
+            description = """
+                    Adds a new page to the guide.
+                    - Only guide authors or ADMIN can create pages
+                    - `order` field determines page sequence (1-based)
+                    - Each page must have unique order within guide
+                    - `content` contains the learning material (Markdown/HTML supported)
+                    - pagesCount is automatically updated on guide
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Page created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "201", description = "Page created successfully",
+                    content = @Content(schema = @Schema(implementation = PageResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input or validation error"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Guide not found"),
             @ApiResponse(responseCode = "409", description = "Page with same order already exists")
     })
     public ResponseEntity<PageResource> createPage(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Page creation data", required = true)
             @Valid @RequestBody CreatePageResource resource
     ) {
         var command = PageResourceAssembler.toCommandFromResource(guideId, resource);
@@ -276,13 +397,31 @@ public class GuidesController {
     @PutMapping("/{guideId}/pages/{pageId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(
-            summary = "Update page",
-            description = "Updates page content or order. Only authors and admins.",
+            summary = "Update page content",
+            description = """
+                    Updates page title, content, or order.
+                    - Only guide authors or ADMIN can update pages
+                    - Content field accepts Markdown or HTML
+                    - Updating order must maintain uniqueness within guide
+                    - Changes to order automatically reorder other pages
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Page updated successfully",
+                    content = @Content(schema = @Schema(implementation = PageResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input or validation error"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Page or guide not found"),
+            @ApiResponse(responseCode = "409", description = "Page order conflict")
+    })
     public ResponseEntity<PageResource> updatePage(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Page UUID", required = true)
             @PathVariable UUID pageId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Updated page data", required = true)
             @Valid @RequestBody UpdatePageResource resource
     ) {
         var command = PageResourceAssembler.toCommandFromResource(pageId, resource);
@@ -297,17 +436,26 @@ public class GuidesController {
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Delete page",
-            description = "Deletes a page from the guide. Only authors and admins.",
+            description = """
+                    Deletes a page from the guide.
+                    - Only guide authors or ADMIN can delete pages
+                    - Page is soft deleted (marked as deleted, data preserved)
+                    - Guide's pagesCount is automatically decremented
+                    - Page order gaps are preserved (not auto-reordered)
+                    - Learning progress entries for this page remain intact
+                    """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Page deleted successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
-            @ApiResponse(responseCode = "404", description = "Page not found")
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Page or guide not found")
     })
     public ResponseEntity<Void> deletePage(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Page UUID", required = true)
             @PathVariable UUID pageId
     ) {
         pageCommandService.handle(new DeletePageCommand(pageId));
