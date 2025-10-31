@@ -19,7 +19,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -31,6 +30,21 @@ public class SecurityConfiguration {
 
     @Value("${application.security.allowed-origins}")
     private String allowedOrigins;
+
+    @Value("${application.security.allowed-methods:GET,POST,PUT,DELETE,PATCH,OPTIONS}")
+    private String allowedMethods;
+
+    @Value("${application.security.allowed-headers:*}")
+    private String allowedHeaders;
+
+    @Value("${application.security.exposed-headers:Authorization,Content-Type}")
+    private String exposedHeaders;
+
+    @Value("${application.security.allow-credentials:true}")
+    private Boolean allowCredentials;
+
+    @Value("${application.security.max-age:3600}")
+    private Long maxAge;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -65,10 +79,28 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Allowed Origins
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        
+        // Allowed Methods
+        configuration.setAllowedMethods(Arrays.asList(allowedMethods.split(",")));
+        
+        // Allowed Headers
+        if ("*".equals(allowedHeaders)) {
+            configuration.addAllowedHeader("*");
+        } else {
+            configuration.setAllowedHeaders(Arrays.asList(allowedHeaders.split(",")));
+        }
+        
+        // Exposed Headers (headers that the client can access)
+        configuration.setExposedHeaders(Arrays.asList(exposedHeaders.split(",")));
+        
+        // Allow Credentials (cookies, authorization headers)
+        configuration.setAllowCredentials(allowCredentials);
+        
+        // Max Age (how long preflight responses can be cached)
+        configuration.setMaxAge(maxAge);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
