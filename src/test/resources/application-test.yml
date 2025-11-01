@@ -21,7 +21,7 @@ spring:
 jwt:
   # Base64 encoded secret for testing (must be at least 512 bits for HS512)
   # This should match the secret used by the Auth Service in tests
-  secret: VGhpc0lzQVZlcnlMb25nU2VjcmV0S2V5Rm9ySldUVG9rZW5HZW5lcmF0aW9uSW5UZXN0RW52aXJvbm1lbnRUb0Vuc3VyZVNlY3VyaXR5QW5kUHJvcGVyRnVuY3Rpb25pbmdXaXRoSFM1MTJBZGV4dHJhQnl0ZXM=
+  secret: d3ee61e796a04895924719559f19a19de2e31d4c330208d8c410c2d63c89de9b5aadc298404a843d521569e812c599bda47b65d4c7fce5a8ded21f24d8df59dc
 
 application:
   max-authors: 5
