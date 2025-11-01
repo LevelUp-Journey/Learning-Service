@@ -29,9 +29,10 @@ server:
     context-path:
 
 # JWT Configuration (Only for token decryption)
+# IMPORTANT: Use the same secret as the Auth Service to decrypt tokens
+# The secret must be at least 512 bits (64 bytes) for HS512 algorithm
 jwt:
-  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-
+ secret: d3ee61e796a04895924719559f19a19de2e31d4c330208d8c410c2d63c89de9b5aadc298404a843d521569e812c599bda47b65d4c7fce5a8ded21f24d8df59dc
 # Swagger/OpenAPI Configuration
 springdoc:
   api-docs:
