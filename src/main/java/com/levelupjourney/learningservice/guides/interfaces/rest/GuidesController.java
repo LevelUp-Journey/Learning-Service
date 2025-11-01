@@ -15,6 +15,7 @@ import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.ResourceNotFoundException;
 import com.levelupjourney.learningservice.shared.infrastructure.security.SecurityContextHelper;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,13 +65,13 @@ public class GuidesController {
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
     public ResponseEntity<Page<GuideResource>> searchGuides(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by title (partial match, case-insensitive)")
+            @Parameter(description = "Filter by title (partial match, case-insensitive)")
             @RequestParam(required = false) String title,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by topic IDs (comma-separated UUIDs)")
+            @Parameter(description = "Filter by topic IDs (comma-separated UUIDs)")
             @RequestParam(required = false) Set<UUID> topicIds,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Filter by author IDs (comma-separated)")
+            @Parameter(description = "Filter by author IDs (comma-separated)")
             @RequestParam(required = false) Set<String> authorIds,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
+            @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
         // Determine filtering logic based on user role
