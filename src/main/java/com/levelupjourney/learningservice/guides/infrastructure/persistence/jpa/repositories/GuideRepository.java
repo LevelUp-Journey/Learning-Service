@@ -10,7 +10,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -23,20 +22,14 @@ public interface GuideRepository extends JpaRepository<Guide, UUID> {
     @Query("SELECT COUNT(g) > 0 FROM Guide g JOIN g.authors a WHERE g.id = :id AND a.authorId = :userId")
     boolean existsByIdAndAuthorIdsContaining(@Param("id") UUID id, @Param("userId") String userId);
     
-    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics WHERE " +
-           "(:status IS NULL OR g.status = :status) AND " +
-           "(:title IS NULL OR LOWER(CAST(g.title AS string)) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) AND " +
-           "(:authorIds IS NULL OR EXISTS (SELECT 1 FROM g.authors a WHERE a.authorId IN :authorIds)) AND " +
-           "(:topicIds IS NULL OR EXISTS (SELECT t FROM g.topics t WHERE t.id IN :topicIds)) AND " +
-           "(:userId IS NULL OR g.status = 'PUBLISHED' OR EXISTS (SELECT 1 FROM g.authors a WHERE a.authorId = :userId))")
-    Page<Guide> searchGuides(
-            @Param("title") String title,
-            @Param("authorIds") Set<String> authorIds,
-            @Param("topicIds") Set<UUID> topicIds,
-            @Param("status") EntityStatus status,
-            @Param("userId") String userId,
-            Pageable pageable
-    );
+    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages")
+    Page<Guide> findAllWithAuthorsAndTopics(Pageable pageable);
+    
+    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.status = :status")
+    Page<Guide> findByStatusWithAuthorsAndTopics(@Param("status") EntityStatus status, Pageable pageable);
+    
+    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.id = :id")
+    Optional<Guide> findByIdWithAuthorsAndTopics(@Param("id") UUID id);
     
     Optional<Guide> findByCourseId(UUID courseId);
 }

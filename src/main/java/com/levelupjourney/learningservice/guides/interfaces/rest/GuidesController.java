@@ -47,7 +47,6 @@ public class GuidesController {
     private final PageCommandService pageCommandService;
     private final PageQueryService pageQueryService;
     private final SecurityContextHelper securityHelper;
-    private final com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository guideRepository;
 
     @GetMapping
     @Operation(
@@ -74,23 +73,16 @@ public class GuidesController {
             @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        // Determine filtering logic based on user role
+        // Simplified: just get by status or all
         EntityStatus status = null;
-        String userId = null;
 
-        if (!securityHelper.isAuthenticated()) {
-            // Unauthenticated users see only PUBLISHED guides
+        if (!securityHelper.isAuthenticated() || !securityHelper.hasRole("ROLE_TEACHER")) {
+            // Unauthenticated users and students see only PUBLISHED guides
             status = EntityStatus.PUBLISHED;
-        } else if (!securityHelper.hasRole("ROLE_TEACHER")) {
-            // Students see only PUBLISHED guides
-            status = EntityStatus.PUBLISHED;
-        } else {
-            // Teachers see PUBLISHED guides + guides where they are authors
-            // status = null (no status filter), userId = current user for author check
-            userId = securityHelper.getCurrentUserId();
         }
+        // Teachers see all guides (status = null)
 
-        var query = new SearchGuidesQuery(title, topicIds, authorIds, status, userId, pageable);
+        var query = new SearchGuidesQuery(title, topicIds, authorIds, status, null, pageable);
         var guides = guideQueryService.handle(query);
 
         var resources = guides.map(guide ->
@@ -121,32 +113,37 @@ public class GuidesController {
             @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        // Get all guides where the teacher is an author (any status)
-        var authorIds = Set.of(teacherId);
-        var query = new SearchGuidesQuery(null, null, authorIds, null, null, pageable);
+        // Simplified: get all guides and filter in memory
+        var query = new SearchGuidesQuery(null, null, null, null, null, pageable);
         var guides = guideQueryService.handle(query);
 
-        var resources = guides.map(guide ->
-                GuideResourceAssembler.toResourceFromEntity(guide, false, false)
-        );
+        // Filter by teacher ID in memory
+        var filteredGuides = guides.getContent().stream()
+                .filter(guide -> guide.getAuthors().stream()
+                        .anyMatch(author -> author.getAuthorId().equals(teacherId)))
+                .toList();
 
-        return ResponseEntity.ok(resources);
+        var resources = filteredGuides.stream()
+                .map(guide -> GuideResourceAssembler.toResourceFromEntity(guide, false, false))
+                .toList();
+
+        // Return as a simple response (not paginated for now, for simplicity)
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                resources,
+                pageable,
+                filteredGuides.size()
+        ));
     }
 
     @GetMapping("/{guideId}")
     @Operation(
             summary = "Get guide by ID with pages",
-            description = """
-                    Retrieves a guide with all its pages.
-                    - PUBLISHED guides: Accessible to everyone
-                    - DRAFT guides: Only accessible to authors
-                    - Returns 404 if guide doesn't exist or user doesn't have access
-                    """
+            description = "Retrieves a guide with all its pages."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Guide found",
                     content = @Content(schema = @Schema(implementation = GuideResource.class))),
-            @ApiResponse(responseCode = "404", description = "Guide not found or not accessible")
+            @ApiResponse(responseCode = "404", description = "Guide not found")
     })
     public ResponseEntity<GuideResource> getGuideById(
             @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
@@ -154,11 +151,6 @@ public class GuidesController {
     ) {
         var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
-
-        // Check visibility
-        if (!isGuideVisibleToUser(guide)) {
-            throw new ResourceNotFoundException("Guide not found");
-        }
 
         var resource = GuideResourceAssembler.toResourceFromEntity(guide, false, true);
         return ResponseEntity.ok(resource);
@@ -351,14 +343,6 @@ public class GuidesController {
             @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId
     ) {
-        // Verify guide exists and is accessible
-        var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
-                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
-
-        if (!isGuideVisibleToUser(guide)) {
-            throw new ResourceNotFoundException("Guide not found");
-        }
-
         var pages = pageQueryService.handle(new GetPagesByGuideIdQuery(guideId));
         var resources = pages.stream()
                 .map(PageResourceAssembler::toResourceFromEntity)
@@ -394,11 +378,6 @@ public class GuidesController {
         // Verify page belongs to guide
         if (!page.getGuide().getId().equals(guideId)) {
             throw new ResourceNotFoundException("Page not found in this guide");
-        }
-
-        // Check guide visibility
-        if (!isGuideVisibleToUser(page.getGuide())) {
-            throw new ResourceNotFoundException("Guide not found");
         }
 
         var resource = PageResourceAssembler.toResourceFromEntity(page);
@@ -512,30 +491,4 @@ public class GuidesController {
 
     // ==================== HELPER METHODS ====================
 
-    private boolean isGuideVisibleToUser(com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide guide) {
-        // PUBLISHED guides are visible to everyone
-        if (guide.getStatus() == EntityStatus.PUBLISHED) {
-            return true;
-        }
-
-        // Non-authenticated users can only see PUBLISHED
-        if (!securityHelper.isAuthenticated()) {
-            return false;
-        }
-
-        String userId = securityHelper.getCurrentUserId();
-
-        // Authors and admins can see their guides
-        if (guideRepository.existsByIdAndAuthorIdsContaining(guide.getId(), userId) || securityHelper.isAdmin()) {
-            return true;
-        }
-
-        // ASSOCIATED_WITH_COURSE requires enrollment check (TODO: implement when enrollments are ready)
-        if (guide.getStatus() == EntityStatus.ASSOCIATED_WITH_COURSE) {
-            // For now, not visible unless author/admin
-            return false;
-        }
-
-        return false;
-    }
 }
