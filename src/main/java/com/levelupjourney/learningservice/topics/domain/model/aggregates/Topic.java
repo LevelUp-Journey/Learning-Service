@@ -20,15 +20,11 @@ public class Topic extends AuditableModel {
     @Column(nullable = false, unique = true, length = 100)
     private String name;
     
-    @Column(length = 500)
-    private String description;
-    
-    public Topic(String name, String description) {
+    public Topic(String name) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Topic name cannot be null or empty");
         }
         this.name = name.trim();
-        this.description = description;
     }
     
     public void updateName(String name) {
@@ -36,9 +32,5 @@ public class Topic extends AuditableModel {
             throw new IllegalArgumentException("Topic name cannot be null or empty");
         }
         this.name = name.trim();
-    }
-    
-    public void updateDescription(String description) {
-        this.description = description;
     }
 }

@@ -13,9 +13,6 @@ public record TopicResource(
         @Schema(description = "Name of the topic", example = "JavaScript")
         String name,
         
-        @Schema(description = "Description of the topic", example = "Programming language for web development")
-        String description,
-        
         @Schema(description = "Creation timestamp")
         LocalDateTime createdAt,
         

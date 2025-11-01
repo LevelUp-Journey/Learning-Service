@@ -12,18 +12,17 @@ import java.util.UUID;
 public class TopicResourceAssembler {
 
     public static CreateTopicCommand toCommandFromResource(CreateTopicResource resource) {
-        return new CreateTopicCommand(resource.name(), resource.description());
+        return new CreateTopicCommand(resource.name());
     }
 
     public static UpdateTopicCommand toCommandFromResource(UUID topicId, UpdateTopicResource resource) {
-        return new UpdateTopicCommand(topicId, resource.name(), resource.description());
+        return new UpdateTopicCommand(topicId, resource.name());
     }
 
     public static TopicResource toResourceFromEntity(Topic entity) {
         return new TopicResource(
                 entity.getId(),
                 entity.getName(),
-                entity.getDescription(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

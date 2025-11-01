@@ -3,6 +3,7 @@ package com.levelupjourney.learningservice.topics.application.internal.queryserv
 import com.levelupjourney.learningservice.topics.domain.model.aggregates.Topic;
 import com.levelupjourney.learningservice.topics.domain.model.queries.GetAllTopicsQuery;
 import com.levelupjourney.learningservice.topics.domain.model.queries.GetTopicByIdQuery;
+import com.levelupjourney.learningservice.topics.domain.model.queries.GetTopicByNameQuery;
 import com.levelupjourney.learningservice.topics.domain.services.TopicQueryService;
 import com.levelupjourney.learningservice.topics.infrastructure.persistence.jpa.repositories.TopicRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,12 @@ public class TopicQueryServiceImpl implements TopicQueryService {
     @Transactional(readOnly = true)
     public Optional<Topic> handle(GetTopicByIdQuery query) {
         return topicRepository.findById(query.topicId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Topic> handle(GetTopicByNameQuery query) {
+        return topicRepository.findByName(query.name());
     }
 
     @Override

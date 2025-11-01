@@ -59,7 +59,7 @@ public class StudentCompletesGuideIntegrationTest {
     @DisplayName("Complete flow: Student discovers, starts, tracks progress, and completes a guide")
     void testCompleteGuideFlow() throws Exception {
         // SETUP: Teacher creates a topic
-        CreateTopicResource topicResource = new CreateTopicResource("Java Basics", "Learn Java fundamentals");
+        CreateTopicResource topicResource = new CreateTopicResource("Java Basics");
         MvcResult topicResult = mockMvc.perform(post("/api/v1/topics")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -207,7 +207,7 @@ public class StudentCompletesGuideIntegrationTest {
     @DisplayName("Error case: Student tries to start learning twice for same guide")
     void testDuplicateStartLearning() throws Exception {
         // Setup guide
-        CreateTopicResource topicResource = new CreateTopicResource("Test Topic", "Description");
+        CreateTopicResource topicResource = new CreateTopicResource("Test Topic");
         MvcResult topicResult = mockMvc.perform(post("/api/v1/topics")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)

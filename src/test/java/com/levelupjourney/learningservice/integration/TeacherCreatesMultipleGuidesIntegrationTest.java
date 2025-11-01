@@ -62,10 +62,7 @@ public class TeacherCreatesMultipleGuidesIntegrationTest {
         String[] topicNames = {"Java Fundamentals", "Spring Framework", "Database Design", "Web Development"};
         
         for (String topicName : topicNames) {
-            CreateTopicResource topicResource = new CreateTopicResource(
-                    topicName, 
-                    "Learn about " + topicName
-            );
+            CreateTopicResource topicResource = new CreateTopicResource(topicName);
             
             MvcResult result = mockMvc.perform(post("/api/v1/topics")
                             .header("Authorization", "Bearer " + teacherToken)
@@ -211,10 +208,7 @@ public class TeacherCreatesMultipleGuidesIntegrationTest {
     @DisplayName("Verify guide with maximum authors (5)")
     void testGuideWithMaxAuthors() throws Exception {
         // Create topic
-        CreateTopicResource topicResource = new CreateTopicResource(
-                "Team Project",
-                "Collaborative guide creation"
-        );
+        CreateTopicResource topicResource = new CreateTopicResource("Team Project");
         
         MvcResult topicResult = mockMvc.perform(post("/api/v1/topics")
                         .header("Authorization", "Bearer " + teacherToken)
@@ -250,10 +244,7 @@ public class TeacherCreatesMultipleGuidesIntegrationTest {
     @DisplayName("Verify student cannot create guides")
     void testStudentCannotCreateGuide() throws Exception {
         // Try to create topic as student (should fail)
-        CreateTopicResource topicResource = new CreateTopicResource(
-                "Unauthorized Topic",
-                "This should fail"
-        );
+        CreateTopicResource topicResource = new CreateTopicResource("Unauthorized Topic");
         
         mockMvc.perform(post("/api/v1/topics")
                         .header("Authorization", "Bearer " + studentToken)

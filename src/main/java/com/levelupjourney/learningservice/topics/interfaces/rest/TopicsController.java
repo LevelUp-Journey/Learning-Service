@@ -4,6 +4,7 @@ import com.levelupjourney.learningservice.shared.infrastructure.exception.Resour
 import com.levelupjourney.learningservice.topics.domain.model.commands.DeleteTopicCommand;
 import com.levelupjourney.learningservice.topics.domain.model.queries.GetAllTopicsQuery;
 import com.levelupjourney.learningservice.topics.domain.model.queries.GetTopicByIdQuery;
+import com.levelupjourney.learningservice.topics.domain.model.queries.GetTopicByNameQuery;
 import com.levelupjourney.learningservice.topics.domain.services.TopicCommandService;
 import com.levelupjourney.learningservice.topics.domain.services.TopicQueryService;
 import com.levelupjourney.learningservice.topics.interfaces.rest.resources.CreateTopicResource;
@@ -68,6 +69,27 @@ public class TopicsController {
                 .orElseThrow(() -> new ResourceNotFoundException("Topic not found with id: " + topicId));
         var resource = TopicResourceAssembler.toResourceFromEntity(topic);
         return ResponseEntity.ok(resource);
+    }
+
+    @GetMapping("/search")
+    @Operation(
+            summary = "Search topics by name",
+            description = "Searches for topics by name. Returns an empty list if no topic is found. No authentication required."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Search completed successfully (may return empty list)",
+                    content = @Content(schema = @Schema(implementation = TopicResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid name parameter")
+    })
+    public ResponseEntity<List<TopicResource>> searchTopicByName(@RequestParam String name) {
+        var topicOptional = topicQueryService.handle(new GetTopicByNameQuery(name));
+        
+        if (topicOptional.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        
+        var resource = TopicResourceAssembler.toResourceFromEntity(topicOptional.get());
+        return ResponseEntity.ok(List.of(resource));
     }
 
     @PostMapping
