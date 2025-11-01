@@ -46,9 +46,15 @@ public class PageCommandServiceImpl implements PageCommandService {
 
         var page = new Page(command.content(), command.orderNumber());
         guide.addPage(page);
-        guideRepository.save(guide);
+        var savedGuide = guideRepository.save(guide);
+        
+        // Find the newly created page with ID assigned
+        var savedPage = savedGuide.getPages().stream()
+                .filter(p -> p.getOrderNumber().equals(command.orderNumber()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Failed to retrieve created page"));
 
-        return Optional.of(page);
+        return Optional.of(savedPage);
     }
 
     @Override
