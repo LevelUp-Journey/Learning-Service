@@ -11,6 +11,7 @@ public record SearchGuidesQuery(
         Set<UUID> topicIds,
         Set<String> authorIds,
         EntityStatus status,
+        String userId,
         Pageable pageable
 ) {
 }

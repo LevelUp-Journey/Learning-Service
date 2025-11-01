@@ -64,11 +64,3 @@ application:
   courses:
     max-authors: 5
 
-# Logging
-logging:
-  level:
-    root: INFO
-    com.levelupjourney: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

@@ -9,8 +9,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 
-@SpringBootApplication
-@EnableJpaRepositories
+@SpringBootApplication(scanBasePackages = "com.levelupjourney.learningservice")
+@EnableJpaRepositories(basePackages = "com.levelupjourney.learningservice")
 @Slf4j
 public class LearningServiceApplication {
 

@@ -52,8 +52,8 @@ public class GuidesController {
             summary = "Search guides with filters",
             description = """
                     Search and filter guides by title, topics, and authors.
-                    - Anonymous users: Only PUBLISHED guides are visible
-                    - Authenticated users: Can see PUBLISHED and their own DRAFT guides
+                    - Students: Only PUBLISHED guides are visible
+                    - Teachers: PUBLISHED guides + guides where they are authors
                     - Supports pagination with page, size, and sort parameters
                     Example: /api/v1/guides?title=Java&topicIds=uuid1,uuid2&page=0&size=20&sort=createdAt,desc
                     """
@@ -72,10 +72,56 @@ public class GuidesController {
             @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        // For non-authenticated users, only show PUBLISHED
-        EntityStatus status = securityHelper.isAuthenticated() ? null : EntityStatus.PUBLISHED;
+        // Determine filtering logic based on user role
+        EntityStatus status = null;
+        String userId = null;
 
-        var query = new SearchGuidesQuery(title, topicIds, authorIds, status, pageable);
+        if (!securityHelper.isAuthenticated()) {
+            // Unauthenticated users see only PUBLISHED guides
+            status = EntityStatus.PUBLISHED;
+        } else if (!securityHelper.hasRole("ROLE_TEACHER")) {
+            // Students see only PUBLISHED guides
+            status = EntityStatus.PUBLISHED;
+        } else {
+            // Teachers see PUBLISHED guides + guides where they are authors
+            // status = null (no status filter), userId = current user for author check
+            userId = securityHelper.getCurrentUserId();
+        }
+
+        var query = new SearchGuidesQuery(title, topicIds, authorIds, status, userId, pageable);
+        var guides = guideQueryService.handle(query);
+
+        var resources = guides.map(guide ->
+                GuideResourceAssembler.toResourceFromEntity(guide, false, false)
+        );
+
+        return ResponseEntity.ok(resources);
+    }
+
+    @GetMapping("/teachers/{teacherId}")
+    @Operation(
+            summary = "Get all guides by teacher ID",
+            description = """
+                    Retrieves all guides where the specified teacher is an author.
+                    - Returns guides of all statuses (DRAFT, PUBLISHED, etc.)
+                    - Useful for viewing a teacher's complete guide portfolio
+                    - Supports pagination with page, size, and sort parameters
+                    Example: /api/v1/guides/teachers/123?page=0&size=20&sort=createdAt,desc
+                    """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Teacher's guides retrieved successfully (paginated)",
+                    content = @Content(schema = @Schema(implementation = Page.class)))
+    })
+    public ResponseEntity<Page<GuideResource>> getGuidesByTeacherId(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Teacher ID", required = true)
+            @PathVariable String teacherId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
+            Pageable pageable
+    ) {
+        // Get all guides where the teacher is an author (any status)
+        var authorIds = Set.of(teacherId);
+        var query = new SearchGuidesQuery(null, null, authorIds, null, null, pageable);
         var guides = guideQueryService.handle(query);
 
         var resources = guides.map(guide ->

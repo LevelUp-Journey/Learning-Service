@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "guides")
@@ -38,10 +39,8 @@ public class Guide extends AuditableModel {
     @Column(name = "pages_count")
     private Integer pagesCount = 0;
     
-    @ElementCollection
-    @CollectionTable(name = "guide_authors", joinColumns = @JoinColumn(name = "guide_id"))
-    @Column(name = "author_id")
-    private Set<String> authorIds = new HashSet<>();
+    @OneToMany(mappedBy = "guide", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<GuideAuthor> authors = new HashSet<>();
     
     @ManyToMany
     @JoinTable(
@@ -65,7 +64,9 @@ public class Guide extends AuditableModel {
         this.title = title;
         this.description = description;
         this.coverImage = coverImage;
-        this.authorIds = authorIds != null ? new HashSet<>(authorIds) : new HashSet<>();
+        this.authors = authorIds != null ? authorIds.stream()
+                .map(authorId -> new GuideAuthor(this, authorId))
+                .collect(Collectors.toSet()) : new HashSet<>();
         this.topics = topics != null ? new HashSet<>(topics) : new HashSet<>();
         this.status = EntityStatus.DRAFT;
     }
@@ -94,17 +95,17 @@ public class Guide extends AuditableModel {
         if (authorId == null || authorId.isBlank()) {
             throw new IllegalArgumentException("Author ID cannot be null or empty");
         }
-        if (this.authorIds.size() >= maxAuthors) {
+        if (this.authors.size() >= maxAuthors) {
             throw new IllegalArgumentException("Maximum number of authors (" + maxAuthors + ") reached");
         }
-        this.authorIds.add(authorId);
+        this.authors.add(new GuideAuthor(this, authorId));
     }
     
     public void removeAuthor(String authorId) {
-        if (this.authorIds.size() <= 1) {
+        if (this.authors.size() <= 1) {
             throw new IllegalArgumentException("Guide must have at least one author");
         }
-        this.authorIds.remove(authorId);
+        this.authors.removeIf(author -> author.getAuthorId().equals(authorId));
     }
     
     public void setAuthors(Set<String> authorIds, int maxAuthors) {
@@ -112,7 +113,9 @@ public class Guide extends AuditableModel {
         if (authorIds.size() > maxAuthors) {
             throw new IllegalArgumentException("Maximum number of authors (" + maxAuthors + ") exceeded");
         }
-        this.authorIds = new HashSet<>(authorIds);
+        this.authors = authorIds.stream()
+                .map(authorId -> new GuideAuthor(this, authorId))
+                .collect(Collectors.toSet());
     }
     
     public void addTopic(Topic topic) {
@@ -164,7 +167,11 @@ public class Guide extends AuditableModel {
     }
     
     public boolean isAuthor(String userId) {
-        return this.authorIds.contains(userId);
+        return this.authors.stream().anyMatch(author -> author.getAuthorId().equals(userId));
+    }
+    
+    public Set<String> getAuthorIds() {
+        return this.authors.stream().map(GuideAuthor::getAuthorId).collect(Collectors.toSet());
     }
     
     private void validateTitle(String title) {

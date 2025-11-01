@@ -14,11 +14,12 @@ import java.util.UUID;
 public interface CourseRepository extends JpaRepository<Course, UUID> {
     
     @Query("SELECT DISTINCT c FROM Course c " +
+           "LEFT JOIN FETCH c.authors " +
            "LEFT JOIN c.topics t " +
            "WHERE (:title IS NULL OR LOWER(CAST(c.title AS string)) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) " +
            "AND (:status IS NULL OR c.status = :status) " +
            "AND (COALESCE(:topicIds) IS NULL OR t.id IN :topicIds) " +
-           "AND (COALESCE(:authorIds) IS NULL OR EXISTS (SELECT 1 FROM c.authorIds a WHERE a IN :authorIds)) " +
+           "AND (COALESCE(:authorIds) IS NULL OR EXISTS (SELECT 1 FROM c.authors a WHERE a.authorId IN :authorIds)) " +
            "AND c.status <> 'DELETED' " +
            "ORDER BY c.createdAt DESC")
     List<Course> searchCourses(

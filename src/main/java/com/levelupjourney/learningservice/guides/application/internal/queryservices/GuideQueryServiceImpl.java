@@ -5,7 +5,6 @@ import com.levelupjourney.learningservice.guides.domain.model.queries.GetGuideBy
 import com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuidesQuery;
 import com.levelupjourney.learningservice.guides.domain.services.GuideQueryService;
 import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository;
-import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -32,7 +31,8 @@ public class GuideQueryServiceImpl implements GuideQueryService {
                 query.title(),
                 query.authorIds(),
                 query.topicIds(),
-                query.status() != null ? query.status() : EntityStatus.PUBLISHED,
+                query.status(),
+                query.userId(),
                 query.pageable()
         );
     }
