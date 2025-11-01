@@ -2,7 +2,6 @@ package com.levelupjourney.learningservice.shared.infrastructure.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,9 +22,36 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String secret;
 
+    /**
+     * Get the signing key from the secret.
+     * Supports both hexadecimal and Base64 encoded secrets.
+     */
     private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
+        byte[] keyBytes;
+        
+        // Check if the secret is in hexadecimal format (only contains hex chars)
+        if (secret.matches("^[0-9a-fA-F]+$")) {
+            // Convert hexadecimal string to bytes
+            keyBytes = hexStringToByteArray(secret);
+        } else {
+            // Assume Base64 encoding
+            keyBytes = java.util.Base64.getDecoder().decode(secret);
+        }
+        
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    /**
+     * Convert hexadecimal string to byte array
+     */
+    private byte[] hexStringToByteArray(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
     }
 
     /**

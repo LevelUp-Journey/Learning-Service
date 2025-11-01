@@ -15,7 +15,7 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     
     @Query("SELECT DISTINCT c FROM Course c " +
            "LEFT JOIN c.topics t " +
-           "WHERE (:title IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :title, '%'))) " +
+           "WHERE (:title IS NULL OR LOWER(CAST(c.title AS string)) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) " +
            "AND (:status IS NULL OR c.status = :status) " +
            "AND (COALESCE(:topicIds) IS NULL OR t.id IN :topicIds) " +
            "AND (COALESCE(:authorIds) IS NULL OR EXISTS (SELECT 1 FROM c.authorIds a WHERE a IN :authorIds)) " +

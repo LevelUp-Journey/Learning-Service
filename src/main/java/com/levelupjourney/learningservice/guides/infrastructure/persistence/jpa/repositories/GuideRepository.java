@@ -24,7 +24,7 @@ public interface GuideRepository extends JpaRepository<Guide, UUID> {
     
     @Query("SELECT g FROM Guide g WHERE " +
            "(:status IS NULL OR g.status = :status) AND " +
-           "(:title IS NULL OR LOWER(g.title) LIKE LOWER(CONCAT('%', :title, '%'))) AND " +
+           "(:title IS NULL OR LOWER(CAST(g.title AS string)) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) AND " +
            "(:authorIds IS NULL OR EXISTS (SELECT 1 FROM g.authorIds a WHERE a IN :authorIds)) AND " +
            "(:topicIds IS NULL OR EXISTS (SELECT t FROM g.topics t WHERE t.id IN :topicIds))")
     Page<Guide> searchGuides(
