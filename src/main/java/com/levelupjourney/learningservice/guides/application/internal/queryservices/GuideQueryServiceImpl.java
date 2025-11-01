@@ -21,7 +21,7 @@ public class GuideQueryServiceImpl implements GuideQueryService {
     @Override
     @Transactional(readOnly = true)
     public Optional<Guide> handle(GetGuideByIdQuery query) {
-        return guideRepository.findByIdWithAuthorsAndTopics(query.guideId());
+        return guideRepository.findByIdWithDetails(query.guideId());
     }
 
     @Override
@@ -29,9 +29,9 @@ public class GuideQueryServiceImpl implements GuideQueryService {
     public Page<Guide> handle(SearchGuidesQuery query) {
         // Simplified: just get by status or all
         if (query.status() != null) {
-            return guideRepository.findByStatusWithAuthorsAndTopics(query.status(), query.pageable());
+            return guideRepository.findByStatusWithDetails(query.status(), query.pageable());
         } else {
-            return guideRepository.findAllWithAuthorsAndTopics(query.pageable());
+            return guideRepository.findAllWithDetails(query.pageable());
         }
     }
 }

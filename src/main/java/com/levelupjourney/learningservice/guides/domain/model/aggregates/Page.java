@@ -27,16 +27,29 @@ public class Page extends AuditableModel {
     private String content;
     
     @Column(name = "order_number", nullable = false)
-    private Integer order;
+    private Integer orderNumber;
     
-    public Page(Guide guide, String content, Integer order) {
+    public Page(Guide guide, String content, Integer orderNumber) {
         validateGuide(guide);
         validateContent(content);
-        validateOrder(order);
+        validateOrder(orderNumber);
         
         this.guide = guide;
         this.content = content;
-        this.order = order;
+        this.orderNumber = orderNumber;
+    }
+    
+    public Page(String content, Integer orderNumber) {
+        validateContent(content);
+        validateOrder(orderNumber);
+        
+        this.content = content;
+        this.orderNumber = orderNumber;
+    }
+    
+    public void setGuide(Guide guide) {
+        validateGuide(guide);
+        this.guide = guide;
     }
     
     public void updateContent(String content) {
@@ -44,9 +57,9 @@ public class Page extends AuditableModel {
         this.content = content;
     }
     
-    public void updateOrder(Integer order) {
-        validateOrder(order);
-        this.order = order;
+    public void updateOrder(Integer orderNumber) {
+        validateOrder(orderNumber);
+        this.orderNumber = orderNumber;
     }
     
     private void validateGuide(Guide guide) {
@@ -61,9 +74,9 @@ public class Page extends AuditableModel {
         }
     }
     
-    private void validateOrder(Integer order) {
-        if (order == null || order < 0) {
-            throw new IllegalArgumentException("Page order must be a non-negative number");
+    private void validateOrder(Integer orderNumber) {
+        if (orderNumber == null || orderNumber < 1) {
+            throw new IllegalArgumentException("Page order must be a positive number");
         }
     }
 }

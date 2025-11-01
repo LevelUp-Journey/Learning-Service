@@ -108,9 +108,9 @@ public class GuidesController {
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
     public ResponseEntity<Page<GuideResource>> getGuidesByTeacherId(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Teacher ID", required = true)
+            @Parameter(description = "Teacher ID", required = true)
             @PathVariable String teacherId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Pagination parameters (page, size, sort)")
+            @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
         // Simplified: get all guides and filter in memory
@@ -119,8 +119,7 @@ public class GuidesController {
 
         // Filter by teacher ID in memory
         var filteredGuides = guides.getContent().stream()
-                .filter(guide -> guide.getAuthors().stream()
-                        .anyMatch(author -> author.getAuthorId().equals(teacherId)))
+                .filter(guide -> guide.getAuthorIds().contains(teacherId))
                 .toList();
 
         var resources = filteredGuides.stream()
@@ -138,19 +137,30 @@ public class GuidesController {
     @GetMapping("/{guideId}")
     @Operation(
             summary = "Get guide by ID with pages",
-            description = "Retrieves a guide with all its pages."
+            description = "Retrieves a guide with all its pages. DRAFT guides are only visible to authors and admins."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Guide found",
                     content = @Content(schema = @Schema(implementation = GuideResource.class))),
-            @ApiResponse(responseCode = "404", description = "Guide not found")
+            @ApiResponse(responseCode = "404", description = "Guide not found or not accessible")
     })
     public ResponseEntity<GuideResource> getGuideById(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId
     ) {
         var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        // Check access: DRAFT guides only visible to authors and admins
+        if (guide.getStatus() == EntityStatus.DRAFT) {
+            String userId = securityHelper.getCurrentUserId();
+            boolean isAuthor = userId != null && guide.isAuthor(userId);
+            boolean isAdmin = securityHelper.isAdmin();
+            
+            if (!isAuthor && !isAdmin) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
+        }
 
         var resource = GuideResourceAssembler.toResourceFromEntity(guide, false, true);
         return ResponseEntity.ok(resource);
@@ -177,7 +187,7 @@ public class GuidesController {
             @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions (requires TEACHER or ADMIN)")
     })
     public ResponseEntity<GuideResource> createGuide(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide creation data", required = true)
+            @Parameter(description = "Guide creation data", required = true)
             @Valid @RequestBody CreateGuideResource resource
     ) {
         var command = GuideResourceAssembler.toCommandFromResource(resource);
@@ -210,9 +220,9 @@ public class GuidesController {
             @ApiResponse(responseCode = "404", description = "Guide not found")
     })
     public ResponseEntity<GuideResource> updateGuide(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Updated guide data", required = true)
+            @Parameter(description = "Updated guide data", required = true)
             @Valid @RequestBody UpdateGuideResource resource
     ) {
         var command = GuideResourceAssembler.toCommandFromResource(guideId, resource);
@@ -246,9 +256,9 @@ public class GuidesController {
             @ApiResponse(responseCode = "404", description = "Guide not found")
     })
     public ResponseEntity<GuideResource> updateGuideStatus(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "New status data", required = true)
+            @Parameter(description = "New status data", required = true)
             @RequestBody @Valid UpdateGuideStatusResource statusResource
     ) {
         var command = new UpdateGuideStatusCommand(guideId, statusResource.status());
@@ -282,9 +292,9 @@ public class GuidesController {
             @ApiResponse(responseCode = "404", description = "Guide not found or author ID not found")
     })
     public ResponseEntity<GuideResource> updateGuideAuthors(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Set of author user IDs (max 5)", required = true)
+            @Parameter(description = "Set of author user IDs (max 5)", required = true)
             @RequestBody Set<String> authorIds
     ) {
         var command = new UpdateGuideAuthorsCommand(guideId, authorIds);
@@ -408,9 +418,9 @@ public class GuidesController {
             @ApiResponse(responseCode = "409", description = "Page with same order already exists")
     })
     public ResponseEntity<PageResource> createPage(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Page creation data", required = true)
+            @Parameter(description = "Page creation data", required = true)
             @Valid @RequestBody CreatePageResource resource
     ) {
         var command = PageResourceAssembler.toCommandFromResource(guideId, resource);

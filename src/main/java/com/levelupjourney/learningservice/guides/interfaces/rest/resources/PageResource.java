@@ -14,7 +14,7 @@ public record PageResource(
         String content,
         
         @Schema(description = "Page order number")
-        Integer order,
+        Integer orderNumber,
         
         @Schema(description = "Creation timestamp")
         LocalDateTime createdAt,

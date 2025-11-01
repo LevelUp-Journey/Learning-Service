@@ -19,17 +19,17 @@ public interface GuideRepository extends JpaRepository<Guide, UUID> {
     
     Page<Guide> findByStatus(EntityStatus status, Pageable pageable);
     
-    @Query("SELECT COUNT(g) > 0 FROM Guide g JOIN g.authors a WHERE g.id = :id AND a.authorId = :userId")
+    @Query("SELECT COUNT(g) > 0 FROM Guide g WHERE g.id = :id AND :userId MEMBER OF g.authorIds")
     boolean existsByIdAndAuthorIdsContaining(@Param("id") UUID id, @Param("userId") String userId);
     
-    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages")
-    Page<Guide> findAllWithAuthorsAndTopics(Pageable pageable);
+    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages")
+    Page<Guide> findAllWithDetails(Pageable pageable);
     
-    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.status = :status")
-    Page<Guide> findByStatusWithAuthorsAndTopics(@Param("status") EntityStatus status, Pageable pageable);
+    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.status = :status")
+    Page<Guide> findByStatusWithDetails(@Param("status") EntityStatus status, Pageable pageable);
     
-    @Query("SELECT DISTINCT g FROM Guide g LEFT JOIN FETCH g.authors LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.id = :id")
-    Optional<Guide> findByIdWithAuthorsAndTopics(@Param("id") UUID id);
+    @Query("SELECT g FROM Guide g LEFT JOIN FETCH g.topics LEFT JOIN FETCH g.pages WHERE g.id = :id")
+    Optional<Guide> findByIdWithDetails(@Param("id") UUID id);
     
     Optional<Guide> findByCourseId(UUID courseId);
 }

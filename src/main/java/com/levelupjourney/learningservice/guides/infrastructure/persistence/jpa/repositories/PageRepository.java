@@ -12,12 +12,12 @@ import java.util.UUID;
 @Repository
 public interface PageRepository extends JpaRepository<Page, UUID> {
     
-    List<Page> findByGuideIdOrderByOrderAsc(UUID guideId);
+    List<Page> findByGuideIdOrderByOrderNumberAsc(UUID guideId);
     
-    Optional<Page> findByGuideIdAndOrder(UUID guideId, Integer order);
+    Optional<Page> findByGuideIdAndOrderNumber(UUID guideId, Integer orderNumber);
     
-    @Query("SELECT p FROM Page p WHERE p.guide.id = :guideId ORDER BY p.order ASC")
+    @Query("SELECT p FROM Page p WHERE p.guide.id = :guideId ORDER BY p.orderNumber ASC")
     List<Page> findPagesByGuideId(UUID guideId);
     
-    boolean existsByGuideIdAndOrder(UUID guideId, Integer order);
+    boolean existsByGuideIdAndOrderNumber(UUID guideId, Integer orderNumber);
 }

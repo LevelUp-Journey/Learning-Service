@@ -39,19 +39,16 @@ public class PageCommandServiceImpl implements PageCommandService {
         }
 
         // Check if order already exists
-        if (pageRepository.existsByGuideIdAndOrder(command.guideId(), command.order())) {
-            throw new BusinessException("A page with order " + command.order() + " already exists", 
+        if (pageRepository.existsByGuideIdAndOrderNumber(command.guideId(), command.orderNumber())) {
+            throw new BusinessException("A page with order " + command.orderNumber() + " already exists", 
                     HttpStatus.CONFLICT);
         }
 
-        var page = new Page(guide, command.content(), command.order());
-        var savedPage = pageRepository.save(page);
-        
-        // Update guide's page count
-        guide.addPage(savedPage);
+        var page = new Page(command.content(), command.orderNumber());
+        guide.addPage(page);
         guideRepository.save(guide);
 
-        return Optional.of(savedPage);
+        return Optional.of(page);
     }
 
     @Override
@@ -72,14 +69,14 @@ public class PageCommandServiceImpl implements PageCommandService {
             page.updateContent(command.content());
         }
 
-        if (command.order() != null) {
+        if (command.orderNumber() != null) {
             // Check if new order conflicts with existing page
-            if (!page.getOrder().equals(command.order()) && 
-                pageRepository.existsByGuideIdAndOrder(guide.getId(), command.order())) {
-                throw new BusinessException("A page with order " + command.order() + " already exists", 
+            if (!page.getOrderNumber().equals(command.orderNumber()) && 
+                pageRepository.existsByGuideIdAndOrderNumber(guide.getId(), command.orderNumber())) {
+                throw new BusinessException("A page with order " + command.orderNumber() + " already exists", 
                         HttpStatus.CONFLICT);
             }
-            page.updateOrder(command.order());
+            page.updateOrder(command.orderNumber());
         }
 
         return Optional.of(pageRepository.save(page));

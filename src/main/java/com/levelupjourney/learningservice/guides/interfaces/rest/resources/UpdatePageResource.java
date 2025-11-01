@@ -9,7 +9,7 @@ public record UpdatePageResource(
         String content,
         
         @Schema(description = "Page order number")
-        @Min(value = 0, message = "Order must be non-negative")
-        Integer order
+        @Min(value = 1, message = "Order must be positive (starting from 1)")
+        Integer orderNumber
 ) {
 }

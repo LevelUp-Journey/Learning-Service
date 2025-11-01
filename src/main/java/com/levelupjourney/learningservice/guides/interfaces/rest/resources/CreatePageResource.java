@@ -13,7 +13,6 @@ public record CreatePageResource(
         
         @Schema(description = "Page order number", required = true)
         @NotNull(message = "Order is required")
-        @Min(value = 0, message = "Order must be non-negative")
-        Integer order
+        Integer orderNumber
 ) {
 }

@@ -14,7 +14,7 @@ public record CreatePageCommand(
         String content,
         
         @NotNull(message = "Order is required")
-        @Min(value = 0, message = "Order must be non-negative")
-        Integer order
+        @Min(value = 1, message = "Order must be positive (starting from 1)")
+        Integer orderNumber
 ) {
 }

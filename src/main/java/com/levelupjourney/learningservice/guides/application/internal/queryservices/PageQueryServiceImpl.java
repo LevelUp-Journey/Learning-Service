@@ -27,6 +27,6 @@ public class PageQueryServiceImpl implements PageQueryService {
     @Override
     @Transactional(readOnly = true)
     public List<Page> handle(GetPagesByGuideIdQuery query) {
-        return pageRepository.findByGuideIdOrderByOrderAsc(query.guideId());
+        return pageRepository.findByGuideIdOrderByOrderNumberAsc(query.guideId());
     }
 }

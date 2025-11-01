@@ -15,7 +15,7 @@ public class PageResourceAssembler {
         return new CreatePageCommand(
                 guideId,
                 resource.content(),
-                resource.order()
+                resource.orderNumber()
         );
     }
 
@@ -23,7 +23,7 @@ public class PageResourceAssembler {
         return new UpdatePageCommand(
                 pageId,
                 resource.content(),
-                resource.order()
+                resource.orderNumber()
         );
     }
 
@@ -31,7 +31,7 @@ public class PageResourceAssembler {
         return new PageResource(
                 entity.getId(),
                 entity.getContent(),
-                entity.getOrder(),
+                entity.getOrderNumber(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

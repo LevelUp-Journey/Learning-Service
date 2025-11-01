@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "guides")
@@ -39,10 +38,15 @@ public class Guide extends AuditableModel {
     @Column(name = "pages_count")
     private Integer pagesCount = 0;
     
-    @OneToMany(mappedBy = "guide", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<GuideAuthor> authors = new HashSet<>();
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "guide_authors",
+        joinColumns = @JoinColumn(name = "guide_id")
+    )
+    @Column(name = "author_id", nullable = false)
+    private Set<String> authorIds = new HashSet<>();
     
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "guide_topics",
             joinColumns = @JoinColumn(name = "guide_id"),
@@ -50,13 +54,14 @@ public class Guide extends AuditableModel {
     )
     private Set<Topic> topics = new HashSet<>();
     
-    @OneToMany(mappedBy = "guide", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("order ASC")
+    @OneToMany(mappedBy = "guide", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("orderNumber ASC")
     private List<Page> pages = new ArrayList<>();
     
     @Column(name = "course_id")
     private UUID courseId;
     
+    // Constructor
     public Guide(String title, String description, String coverImage, Set<String> authorIds, Set<Topic> topics) {
         validateTitle(title);
         validateAuthorIds(authorIds);
@@ -64,13 +69,14 @@ public class Guide extends AuditableModel {
         this.title = title;
         this.description = description;
         this.coverImage = coverImage;
-        this.authors = authorIds != null ? authorIds.stream()
-                .map(authorId -> new GuideAuthor(this, authorId))
-                .collect(Collectors.toSet()) : new HashSet<>();
+        this.authorIds = authorIds != null ? new HashSet<>(authorIds) : new HashSet<>();
         this.topics = topics != null ? new HashSet<>(topics) : new HashSet<>();
         this.status = EntityStatus.DRAFT;
+        this.likesCount = 0;
+        this.pagesCount = 0;
     }
     
+    // Business methods - Basic info
     public void updateTitle(String title) {
         validateTitle(title);
         this.title = title;
@@ -91,21 +97,22 @@ public class Guide extends AuditableModel {
         this.status = status;
     }
     
+    // Author management
     public void addAuthor(String authorId, int maxAuthors) {
         if (authorId == null || authorId.isBlank()) {
             throw new IllegalArgumentException("Author ID cannot be null or empty");
         }
-        if (this.authors.size() >= maxAuthors) {
+        if (this.authorIds.size() >= maxAuthors) {
             throw new IllegalArgumentException("Maximum number of authors (" + maxAuthors + ") reached");
         }
-        this.authors.add(new GuideAuthor(this, authorId));
+        this.authorIds.add(authorId);
     }
     
     public void removeAuthor(String authorId) {
-        if (this.authors.size() <= 1) {
+        if (this.authorIds.size() <= 1) {
             throw new IllegalArgumentException("Guide must have at least one author");
         }
-        this.authors.removeIf(author -> author.getAuthorId().equals(authorId));
+        this.authorIds.remove(authorId);
     }
     
     public void setAuthors(Set<String> authorIds, int maxAuthors) {
@@ -113,11 +120,10 @@ public class Guide extends AuditableModel {
         if (authorIds.size() > maxAuthors) {
             throw new IllegalArgumentException("Maximum number of authors (" + maxAuthors + ") exceeded");
         }
-        this.authors = authorIds.stream()
-                .map(authorId -> new GuideAuthor(this, authorId))
-                .collect(Collectors.toSet());
+        this.authorIds = new HashSet<>(authorIds);
     }
     
+    // Topic management
     public void addTopic(Topic topic) {
         if (topic == null) {
             throw new IllegalArgumentException("Topic cannot be null");
@@ -133,10 +139,12 @@ public class Guide extends AuditableModel {
         this.topics = topics != null ? new HashSet<>(topics) : new HashSet<>();
     }
     
+    // Page management
     public void addPage(Page page) {
         if (page == null) {
             throw new IllegalArgumentException("Page cannot be null");
         }
+        page.setGuide(this);
         this.pages.add(page);
         this.pagesCount = this.pages.size();
     }
@@ -144,8 +152,25 @@ public class Guide extends AuditableModel {
     public void removePage(Page page) {
         this.pages.remove(page);
         this.pagesCount = this.pages.size();
+        // Reorder remaining pages
+        reorderPages();
     }
     
+    public void updatePage(UUID pageId, String content) {
+        Page page = this.pages.stream()
+                .filter(p -> p.getId().equals(pageId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Page not found"));
+        page.updateContent(content);
+    }
+    
+    public void reorderPages() {
+        for (int i = 0; i < this.pages.size(); i++) {
+            this.pages.get(i).updateOrder(i + 1);
+        }
+    }
+    
+    // Likes management
     public void incrementLikes() {
         this.likesCount++;
     }
@@ -156,6 +181,7 @@ public class Guide extends AuditableModel {
         }
     }
     
+    // Course association
     public void associateWithCourse(UUID courseId) {
         this.courseId = courseId;
         this.status = EntityStatus.ASSOCIATED_WITH_COURSE;
@@ -163,17 +189,15 @@ public class Guide extends AuditableModel {
     
     public void disassociateFromCourse() {
         this.courseId = null;
-        this.status = EntityStatus.DRAFT;
+        this.status = EntityStatus.PUBLISHED;
     }
     
+    // Query methods
     public boolean isAuthor(String userId) {
-        return this.authors.stream().anyMatch(author -> author.getAuthorId().equals(userId));
+        return this.authorIds.contains(userId);
     }
     
-    public Set<String> getAuthorIds() {
-        return this.authors.stream().map(GuideAuthor::getAuthorId).collect(Collectors.toSet());
-    }
-    
+    // Validation
     private void validateTitle(String title) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Guide title cannot be null or empty");
