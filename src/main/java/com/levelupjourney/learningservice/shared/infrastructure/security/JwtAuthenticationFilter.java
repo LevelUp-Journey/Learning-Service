@@ -1,5 +1,6 @@
 package com.levelupjourney.learningservice.shared.infrastructure.security;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,8 +11,6 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -21,15 +20,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * JWT Authentication Filter for extracting and validating JWT tokens from Bearer header.
- * This filter:
- * - Extracts JWT token from Authorization Bearer header
- * - Decrypts the token using JwtTokenProvider
- * - Extracts user information (username, userId, roles)
- * - Sets up Spring Security authentication context
- * 
- * Note: This service does NOT generate or refresh tokens. 
- * Token generation is handled by the Auth Service.
+ * JWT Authentication Filter.
+ * Only validates JWT tokens and sets authentication context.
  */
 @Component
 @RequiredArgsConstructor
@@ -44,51 +36,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+        
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
+
+        log.debug("Request: {} {}", request.getMethod(), request.getRequestURI());
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.debug("No Bearer token found");
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
         try {
-            username = jwtTokenProvider.extractUsername(jwt);
-            String userId = jwtTokenProvider.extractUserId(jwt);
-
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                @SuppressWarnings("unchecked")
-                List<String> roles = jwtTokenProvider.extractClaim(jwt, claims -> 
-                    (List<String>) claims.get("roles", List.class));
-                
-                List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-
-                UserDetails userDetails = User.builder()
-                        .username(username)
-                        .password("")
-                        .authorities(authorities)
-                        .build();
-
-                if (jwtTokenProvider.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            authorities
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
-                    // Store userId in request attribute for easy access
-                    request.setAttribute("userId", userId);
-                    
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            }
+            final String jwt = authHeader.substring(7);
+            
+            // Validate and extract claims
+            Claims claims = jwtTokenProvider.validateAndGetClaims(jwt);
+            
+            String userId = jwtTokenProvider.getUserId(claims);
+            List<String> roles = jwtTokenProvider.getRoles(claims);
+            
+            log.debug("UserId: {}, Roles: {}", userId, roles);
+            
+            // Convert roles to authorities
+            List<SimpleGrantedAuthority> authorities = roles.stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .collect(Collectors.toList());
+            
+            // Set authentication
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                    userId,
+                    null,
+                    authorities
+            );
+            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+            log.debug("Authentication set for userId: {}", userId);
+            
         } catch (Exception e) {
-            log.error("Cannot set user authentication: {}", e.getMessage());
+            log.error("Authentication failed: {}", e.getMessage());
         }
 
         filterChain.doFilter(request, response);

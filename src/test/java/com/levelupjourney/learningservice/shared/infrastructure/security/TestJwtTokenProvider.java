@@ -21,31 +21,12 @@ public class TestJwtTokenProvider {
     private final SecretKey SECRET_KEY;
     private static final long EXPIRATION_TIME = 86400000; // 24 hours
     
-    public TestJwtTokenProvider(@Value("${jwt.secret}") String secret) {
-        // Support both hexadecimal and Base64 encoded secrets
-        byte[] keyBytes;
-        
-        if (secret.matches("^[0-9a-fA-F]+$")) {
-            // Convert hexadecimal string to bytes
-            keyBytes = hexStringToByteArray(secret);
-        } else {
-            // Assume Base64 encoding
-            keyBytes = java.util.Base64.getDecoder().decode(secret);
-        }
+    public TestJwtTokenProvider(@Value("${app.jwt.secret}") String secret) {
+        // Use UTF-8 bytes for the secret
+        byte[] keyBytes = secret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         
         this.SECRET_KEY = Keys.hmacShaKeyFor(keyBytes);
     }
-    
-    private byte[] hexStringToByteArray(String hex) {
-        int len = hex.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
-        }
-        return data;
-    }
-    
     public String generateToken(String userId, String username, List<String> roles) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);

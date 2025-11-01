@@ -3,109 +3,89 @@ package com.levelupjourney.learningservice.shared.infrastructure.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.function.Function;
+import java.util.List;
 
-/**
- * JWT Token Provider for decrypting and extracting claims from JWT tokens.
- * This service only handles token validation and claim extraction.
- * Token generation and refresh are handled by the Auth Service.
- */
 @Component
+@Slf4j
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
-    /**
-     * Get the signing key from the secret.
-     * Supports both hexadecimal and Base64 encoded secrets.
-     */
     private SecretKey getSigningKey() {
-        byte[] keyBytes;
-        
-        // Check if the secret is in hexadecimal format (only contains hex chars)
-        if (secret.matches("^[0-9a-fA-F]+$")) {
-            // Convert hexadecimal string to bytes
-            keyBytes = hexStringToByteArray(secret);
-        } else {
-            // Assume Base64 encoding
-            keyBytes = java.util.Base64.getDecoder().decode(secret);
-        }
-        
+        // Convertir el string a bytes UTF-8 y crear la clave HMAC-SHA
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
-     * Convert hexadecimal string to byte array
+     * Valida el JWT y extrae los claims.
+     * La función principal es validar los roles del usuario y pasar el ID del usuario al request.
+     * @param token El token JWT Bearer
+     * @return Los claims del token si es válido
+     * @throws Exception Si el token es inválido o faltan campos requeridos
      */
-    private byte[] hexStringToByteArray(String hex) {
-        int len = hex.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
+    public Claims validateAndGetClaims(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            // Validar que el token no haya expirado
+            Date expiration = claims.getExpiration();
+            if (expiration != null && expiration.before(new Date())) {
+                throw new RuntimeException("Token has expired");
+            }
+
+            // Validar que tenga userId
+            String userId = claims.get("userId", String.class);
+            if (userId == null || userId.trim().isEmpty()) {
+                throw new RuntimeException("Token missing userId");
+            }
+
+            // Validar que tenga roles
+            @SuppressWarnings("unchecked")
+            List<String> roles = claims.get("roles", List.class);
+            if (roles == null || roles.isEmpty()) {
+                throw new RuntimeException("Token missing roles");
+            }
+
+            log.info("Token valid - Subject: {}, UserId: {}, Roles: {}", 
+                    claims.getSubject(), userId, roles);
+            
+            return claims;
+        } catch (Exception e) {
+            log.error("Token validation failed: {}", e.getMessage(), e);
+            throw e;
         }
-        return data;
     }
 
     /**
-     * Extract username from JWT token
+     * Extrae el ID del usuario de los claims.
+     * @param claims Los claims del token
+     * @return El ID del usuario
      */
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+    public String getUserId(Claims claims) {
+        return claims.get("userId", String.class);
     }
 
     /**
-     * Extract userId from JWT token
+     * Extrae los roles del usuario de los claims.
+     * @param claims Los claims del token
+     * @return La lista de roles
      */
-    public String extractUserId(String token) {
-        return extractClaim(token, claims -> claims.get("userId", String.class));
-    }
-
-    /**
-     * Extract a specific claim from JWT token
-     */
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    /**
-     * Extract all claims from JWT token
-     */
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    /**
-     * Validate JWT token
-     */
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
-    }
-
-    /**
-     * Check if token is expired
-     */
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
-    /**
-     * Extract expiration date from token
-     */
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
+    @SuppressWarnings("unchecked")
+    public List<String> getRoles(Claims claims) {
+        return claims.get("roles", List.class);
     }
 }
+

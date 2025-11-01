@@ -32,8 +32,9 @@ server:
 # IMPORTANT: Use the same secret as the Auth Service to decrypt tokens
 # The secret must be at least 512 bits (64 bytes) for HS512 algorithm
 # Supports both hexadecimal (128 chars) and Base64 encoded formats
-jwt:
-  secret: ${JWT_SECRET:d3ee61e796a04895924719559f19a19de2e31d4c330208d8c410c2d63c89de9b5aadc298404a843d521569e812c599bda47b65d4c7fce5a8ded21f24d8df59dc}
+app:
+  jwt:
+    secret: ${JWT_SECRET:d3ee61e796a04895924719559f19a19de2e31d4c330208d8c410c2d63c89de9b5aadc298404a843d521569e812c599bda47b65d4c7fce5a8ded21f24d8df59dc}
 
 # Swagger/OpenAPI Configuration
 springdoc:
