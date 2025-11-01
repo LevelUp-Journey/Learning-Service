@@ -46,6 +46,7 @@ public class GuidesController {
     private final PageCommandService pageCommandService;
     private final PageQueryService pageQueryService;
     private final SecurityContextHelper securityHelper;
+    private final com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository guideRepository;
 
     @GetMapping
     @Operation(
@@ -524,7 +525,7 @@ public class GuidesController {
         String userId = securityHelper.getCurrentUserId();
 
         // Authors and admins can see their guides
-        if (guide.isAuthor(userId) || securityHelper.isAdmin()) {
+        if (guideRepository.existsByIdAndAuthorIdsContaining(guide.getId(), userId) || securityHelper.isAdmin()) {
             return true;
         }
 
