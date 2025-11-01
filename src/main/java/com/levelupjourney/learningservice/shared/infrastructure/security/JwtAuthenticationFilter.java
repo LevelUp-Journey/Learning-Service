@@ -20,6 +20,17 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * JWT Authentication Filter for extracting and validating JWT tokens from Bearer header.
+ * This filter:
+ * - Extracts JWT token from Authorization Bearer header
+ * - Decrypts the token using JwtTokenProvider
+ * - Extracts user information (username, userId, roles)
+ * - Sets up Spring Security authentication context
+ * 
+ * Note: This service does NOT generate or refresh tokens. 
+ * Token generation is handled by the Auth Service.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
