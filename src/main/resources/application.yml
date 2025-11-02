@@ -67,9 +67,18 @@ application:
 
 eureka:
   client:
-    # La URL de tu servidor Eureka (la misma que usaste en el Gateway)
-    serviceUrl:
-      defaultZone: ${SERVICE_DISCOVERY_URL:http://localhost:8761/eureka/}
+    service-url:
+      defaultZone: ${SERVICE_DISCOVERY_URL}
+    register-with-eureka: true
+    fetch-registry: true
   instance:
-    # Es buena práctica registrar la IP en lugar del hostname
+    ip-address: ${SERVER_IP}
     prefer-ip-address: true
+
+    status-page-url: http://${eureka.instance.ip-address}:8081/swagger-ui/index.html
+    health-check-url: http://${eureka.instance.ip-address}:8081/actuator/health
+
+    instance-id: ${spring.application.name}:${server.port:8081}
+
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
