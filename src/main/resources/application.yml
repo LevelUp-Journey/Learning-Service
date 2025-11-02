@@ -3,9 +3,9 @@ spring:
     name: LEARNING_SERVICE
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/learning_service_db
-    username: admin
-    password: admin
+    url: {DB_URL:jdbc:postgresql://localhost:5432/learning_service}
+    username: {DB_USERNAME:admin}
+    password: {DB_PASSWORD:admin}
     driver-class-name: org.postgresql.Driver
     
   jpa:
@@ -24,7 +24,7 @@ spring:
     time-zone: UTC
 
 server:
-  port: 8085
+  port: {SERVER_PORT:8085}
   servlet:
     context-path:
 
@@ -34,7 +34,7 @@ server:
 # Supports both hexadecimal (128 chars) and Base64 encoded formats
 app:
   jwt:
-    secret: ${JWT_SECRET:d3ee61e796a04895924719559f19a19de2e31d4c330208d8c410c2d63c89de9b5aadc298404a843d521569e812c599bda47b65d4c7fce5a8ded21f24d8df59dc}
+    secret: ${JWT_SECRET}
 
 # Swagger/OpenAPI Configuration
 springdoc:
@@ -64,3 +64,12 @@ application:
   courses:
     max-authors: 5
 
+
+eureka:
+  client:
+    # La URL de tu servidor Eureka (la misma que usaste en el Gateway)
+    serviceUrl:
+      defaultZone: ${SERVICE_DISCOVERY_URL:http://localhost:8761/eureka/}
+  instance:
+    # Es buena práctica registrar la IP en lugar del hostname
+    prefer-ip-address: true
