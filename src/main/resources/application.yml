@@ -18,6 +18,42 @@ spring:
         format_sql: true
     open-in-view: false
     
+  # --- Configuración de Kafka (Azure Event Hubs) ---
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="${KAFKA_CONNECTION_STRING}";'
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        max.block.ms: 2000
+        request.timeout.ms: 2000
+        delivery.timeout.ms: 3000
+        spring:
+          json:
+            add:
+              type:
+                headers: false
+
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+
+    admin:
+      auto-create: false
+      fail-fast: false
+    
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -64,6 +100,23 @@ application:
   courses:
     max-authors: 5
 
+# --- Kafka Topics Configuration ---
+kafka:
+  topics:
+    # Aquí se definirán los tópicos cuando estén disponibles
+    # Ejemplo:
+    # guide-published: guide.published
+    # course-created: course.created
+
+# --- Configuración de Actuator ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 eureka:
   client:
