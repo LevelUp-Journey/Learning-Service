@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: learning-service-postgres
+    environment:
+      POSTGRES_DB: learning_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - learning-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper (required for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: learning-service-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - learning-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: learning-service-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - learning-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Eureka Service Discovery (optional)
+  eureka:
+    image: steeltoeoss/eureka-server:3.1.0
+    container_name: learning-service-eureka
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: eureka-server
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+    networks:
+      - learning-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Learning Service
+  learning-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: learning-service-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      # Database Configuration
+      DB_URL: jdbc:postgresql://postgres:5432/learning_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+      # Kafka Configuration (Local - PLAINTEXT)
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # No KAFKA_CONNECTION_STRING needed for local PLAINTEXT
+
+      # JWT Configuration (use a secure secret in production)
+      JWT_SECRET: your-secret-key-at-least-512-bits-long-change-this-in-production-use-a-strong-random-key
+
+      # Server Configuration
+      SERVER_PORT: 8080
+
+      # Eureka Configuration
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka:8761/eureka/
+
+      # Logging Configuration for Docker
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_LEVELUPJOURNEY_LEARNINGSERVICE: INFO
+
+      # JVM Options (overrides Dockerfile defaults if needed)
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+
+      # Spring Profiles
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - learning-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  learning-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
