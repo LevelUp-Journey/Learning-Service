@@ -1,13 +1,13 @@
 spring:
   application:
     name: learning-service
-  
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-    
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,7 +17,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     open-in-view: false
-    
+
   # --- Configuración de Kafka (Azure Event Hubs) ---
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
@@ -53,7 +53,7 @@ spring:
     admin:
       auto-create: false
       fail-fast: false
-    
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -125,10 +125,10 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
   instance:
-    prefer-ip-address: false
-    hostname: ${HOSTNAME:${spring.application.name}}
-    status-page-url: http://${eureka.instance.hostname}:${server.port:8085}/swagger-ui/index.html
-    health-check-url: http://${eureka.instance.hostname}:${server.port:8085}/actuator/health
-    instance-id: ${spring.application.name}:${server.port:8085}
+    prefer-ip-address: true
+    # hostname: ${HOSTNAME:${spring.application.name}}
+    # status-page-url: http://${eureka.instance.hostname}:${server.port:8085}/swagger-ui/index.html
+    # health-check-url: http://${eureka.instance.hostname}:${server.port:8085}/actuator/health
+    # instance-id: ${spring.application.name}:${server.port:8085}
     lease-renewal-interval-in-seconds: 30
     lease-expiration-duration-in-seconds: 90
