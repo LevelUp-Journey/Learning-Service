@@ -1,137 +1,128 @@
 spring:
-    application:
-        name: learning-service
+  application:
+    name: learning-service
 
-    datasource:
-        url: ${DB_URL}
-        username: ${DB_USERNAME}
-        password: ${DB_PASSWORD}
-        driver-class-name: org.postgresql.Driver
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      auto-commit: false
 
-    jpa:
-        hibernate:
-            ddl-auto: update
-        show-sql: true
-        properties:
-            hibernate:
-                dialect: org.hibernate.dialect.PostgreSQLDialect
-                format_sql: true
-        open-in-view: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: com.levelupjourney.learningservice.shared.infrastructure.persistence.jpa.configuration.strategy.SnakeCaseWithPluralizedTablePhysicalNamingStrategy
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+    show-sql: false
+    open-in-view: true
 
-    # --- Configuración de Kafka (Azure Event Hubs) ---
-    kafka:
-        bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-        properties:
-            security.protocol: SASL_SSL
-            sasl.mechanism: PLAIN
-            sasl.jaas.config: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="${KAFKA_CONNECTION_STRING}";'
+  # --- Configuración de Kafka (Azure Event Hubs) ---
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="${KAFKA_CONNECTION_STRING}";'
 
-        producer:
-            key-serializer: org.apache.kafka.common.serialization.StringSerializer
-            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-            properties:
-                max.block.ms: 2000
-                request.timeout.ms: 2000
-                delivery.timeout.ms: 3000
-                spring:
-                    json:
-                        add:
-                            type:
-                                headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        max.block.ms: 2000
+        request.timeout.ms: 2000
+        delivery.timeout.ms: 3000
+        spring:
+          json:
+            add:
+              type:
+                headers: false
 
-        consumer:
-            key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-            value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-            properties:
-                spring:
-                    json:
-                        trusted:
-                            packages: "*"
-            auto-offset-reset: earliest
-            enable-auto-commit: true
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+      auto-offset-reset: earliest
+      enable-auto-commit: true
 
-        admin:
-            auto-create: false
-            fail-fast: false
+    admin:
+      auto-create: false
+      fail-fast: false
 
-    jackson:
-        serialization:
-            write-dates-as-timestamps: false
-        time-zone: UTC
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
 
 server:
-    port: ${SERVER_PORT}
-    servlet:
-        context-path:
+  port: ${SERVER_PORT}
 
 # JWT Configuration (Only for token decryption)
 # IMPORTANT: Use the same secret as the Auth Service to decrypt tokens
 # The secret must be at least 512 bits (64 bytes) for HS512 algorithm
 # Supports both hexadecimal (128 chars) and Base64 encoded formats
 app:
-    jwt:
-        secret: ${JWT_SECRET}
-
-# Swagger/OpenAPI Configuration
-springdoc:
-    api-docs:
-        path: /api-docs
-    swagger-ui:
-        path: /swagger-ui.html
-        enabled: true
-        tags-sorter: alpha
-        operations-sorter: alpha
-    show-actuator: false
+  jwt:
+    secret: ${JWT_SECRET}
 
 # Application Configuration
 application:
-    security:
-        allowed-origins: http://localhost:3000,http://localhost:4200,http://localhost:5173,http://localhost:8080
-        allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
-        allowed-headers: "*"
-        exposed-headers: Authorization,Content-Type,X-Total-Count,X-Page-Number,X-Page-Size
-        allow-credentials: true
-        max-age: 3600
-    pagination:
-        default-page-size: 20
-        max-page-size: 100
-    guides:
-        max-authors: 5
-    courses:
-        max-authors: 5
+  security:
+    allowed-origins: http://localhost:3000,http://localhost:4200,http://localhost:5173,http://localhost:8080
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    allowed-headers: "*"
+    exposed-headers: Authorization,Content-Type,X-Total-Count,X-Page-Number,X-Page-Size
+    allow-credentials: true
+    max-age: 3600
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+  guides:
+    max-authors: 5
+  courses:
+    max-authors: 5
 
 # --- Kafka Topics Configuration ---
 kafka:
-    topics:
-        # Aquí se definirán los tópicos cuando estén disponibles
-        # Ejemplo:
-        # guide-published: guide.published
-        # course-created: course.created
+  topics:
+  # Aquí se definirán los tópicos cuando estén disponibles
+  # Ejemplo:
+  # guide-published: guide.published
+  # course-created: course.created
 
 # --- Configuración de Actuator ---
 management:
-    endpoints:
-        web:
-            exposure:
-                include: health,info
-    endpoint:
-        health:
-            show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
 
 eureka:
-    client:
-        service-url:
-            defaultZone: ${SERVICE_DISCOVERY_URL:http://service-discovery:8761/eureka/}
-        register-with-eureka: true
-        fetch-registry: true
-        registry-fetch-interval-seconds: 10 # sincroniza lista de servicios cada 10s
-        healthcheck:
-            enabled: true # usa health endpoint para validación real
+  client:
+    service-url:
+      defaultZone: ${SERVICE_DISCOVERY_URL:http://service-discovery:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 10    # sincroniza lista de servicios cada 10s
+    healthcheck:
+      enabled: true                       # usa health endpoint para validación real
 
-    instance:
-        prefer-ip-address: true
-        lease-renewal-interval-in-seconds: 10 # envía heartbeat cada 10s
-        lease-expiration-duration-in-seconds: 30 # Eureka espera 30s antes de eliminarlo
-        instance-id: ${spring.application.name}:${server.port}:${random.value}
-        metadata-map:
-            zone: default
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10  # envía heartbeat cada 10s
+    lease-expiration-duration-in-seconds: 30 # Eureka espera 30s antes de eliminarlo
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
+    metadata-map:
+      zone: default
