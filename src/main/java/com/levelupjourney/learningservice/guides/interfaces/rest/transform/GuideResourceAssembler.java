@@ -50,6 +50,7 @@ public class GuideResourceAssembler {
                 includePages ? entity.getPages().stream()
                         .map(PageResourceAssembler::toResourceFromEntity)
                         .collect(Collectors.toList()) : null,
+                entity.getRelatedChallenges(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

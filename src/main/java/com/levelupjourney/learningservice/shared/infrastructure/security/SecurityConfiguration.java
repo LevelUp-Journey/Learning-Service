@@ -52,13 +52,19 @@ public class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // Public endpoints - Swagger/OpenAPI
                         .requestMatchers(
                                 "/swagger-ui/**",
-                                "/api-docs/**",
                                 "/swagger-ui.html",
-                                "/actuator/**"
+                                "/v3/api-docs/**",
+                                "/v3/api-docs.yaml",
+                                "/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
                         ).permitAll()
+                        
+                        // Actuator endpoints
+                        .requestMatchers("/actuator/**").permitAll()
                         
                         // Public read endpoints for guides, courses, and topics
                         .requestMatchers(HttpMethod.GET, "/api/v1/guides/**").permitAll()

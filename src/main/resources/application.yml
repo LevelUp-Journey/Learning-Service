@@ -22,13 +22,15 @@ spring:
     show-sql: false
     open-in-view: true
 
-  # --- Configuración de Kafka (Azure Event Hubs) ---
+  # --- Configuración de Kafka ---
+  # Soporta tanto Azure Event Hubs (IS_AZURE=true) como Kafka estándar (IS_AZURE=false)
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="${KAFKA_CONNECTION_STRING}";'
+      # Estas propiedades solo se usan cuando IS_AZURE=true
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -66,6 +68,24 @@ spring:
 server:
   port: ${SERVER_PORT}
 
+# --- Configuración de Swagger/OpenAPI ---
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    filter: true
+    displayRequestDuration: true
+    displayOperationId: false
+  show-actuator: false
+  packages-to-scan: com.levelupjourney.learningservice
+  paths-to-match: /api/**
+
 # JWT Configuration (Only for token decryption)
 # IMPORTANT: Use the same secret as the Auth Service to decrypt tokens
 # The secret must be at least 512 bits (64 bytes) for HS512 algorithm
@@ -93,8 +113,10 @@ application:
 
 # --- Kafka Topics Configuration ---
 kafka:
+  is-azure: ${IS_AZURE:false}  # true para Azure Event Hubs, false para Kafka estándar
   topics:
-  # Aquí se definirán los tópicos cuando estén disponibles
+    guide-challenge-added: guides.challenge.added.v1
+  # Aquí se definirán más tópicos cuando estén disponibles
   # Ejemplo:
   # guide-published: guide.published
   # course-created: course.created

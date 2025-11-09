@@ -2,12 +2,14 @@ package com.levelupjourney.learningservice.guides.application.internal.commandse
 
 import com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide;
 import com.levelupjourney.learningservice.guides.domain.model.commands.*;
+import com.levelupjourney.learningservice.guides.domain.model.events.GuideChallengeAddedEvent;
 import com.levelupjourney.learningservice.guides.domain.services.GuideCommandService;
 import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository;
 import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.BusinessException;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.ResourceNotFoundException;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.UnauthorizedException;
+import com.levelupjourney.learningservice.shared.infrastructure.messaging.KafkaEventPublisher;
 import com.levelupjourney.learningservice.shared.infrastructure.security.SecurityContextHelper;
 import com.levelupjourney.learningservice.topics.infrastructure.persistence.jpa.repositories.TopicRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ public class GuideCommandServiceImpl implements GuideCommandService {
     private final GuideRepository guideRepository;
     private final TopicRepository topicRepository;
     private final SecurityContextHelper securityHelper;
+    private final KafkaEventPublisher kafkaEventPublisher;
 
     @Value("${application.guides.max-authors}")
     private int maxAuthors;
@@ -136,6 +138,52 @@ public class GuideCommandServiceImpl implements GuideCommandService {
         // Soft delete
         guide.updateStatus(EntityStatus.DELETED);
         guideRepository.save(guide);
+    }
+    
+    @Override
+    @Transactional
+    public Optional<Guide> handle(AddChallengeToGuideCommand command) {
+        var guide = guideRepository.findById(command.guideId())
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        checkAuthorization(guide);
+
+        // Check if challenge is already added
+        if (guide.hasChallenge(command.challengeId())) {
+            throw new BusinessException("Challenge already added to this guide", HttpStatus.BAD_REQUEST);
+        }
+
+        // Add challenge to guide
+        guide.addChallenge(command.challengeId());
+        var savedGuide = guideRepository.save(guide);
+
+        // Publish event to Kafka
+        var event = new GuideChallengeAddedEvent(guide.getId(), command.challengeId());
+        kafkaEventPublisher.publishEvent(
+                kafkaEventPublisher.getGuideChallengeAddedTopic(),
+                guide.getId().toString(),
+                event
+        );
+
+        return Optional.of(savedGuide);
+    }
+    
+    @Override
+    @Transactional
+    public Optional<Guide> handle(RemoveChallengeFromGuideCommand command) {
+        var guide = guideRepository.findById(command.guideId())
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        checkAuthorization(guide);
+
+        // Check if challenge exists
+        if (!guide.hasChallenge(command.challengeId())) {
+            throw new BusinessException("Challenge not found in this guide", HttpStatus.NOT_FOUND);
+        }
+
+        // Remove challenge from guide
+        guide.removeChallenge(command.challengeId());
+        return Optional.of(guideRepository.save(guide));
     }
 
     private void checkAuthorization(Guide guide) {
