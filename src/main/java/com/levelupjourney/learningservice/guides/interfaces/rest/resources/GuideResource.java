@@ -42,6 +42,9 @@ public record GuideResource(
         @Schema(description = "Pages")
         List<PageResource> pages,
         
+        @Schema(description = "Related challenge IDs for practice and reinforcement")
+        Set<UUID> relatedChallenges,
+        
         @Schema(description = "Creation timestamp")
         LocalDateTime createdAt,
         

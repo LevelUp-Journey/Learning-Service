@@ -61,6 +61,14 @@ public class Guide extends AuditableModel {
     @Column(name = "course_id")
     private UUID courseId;
     
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "guide_challenges",
+        joinColumns = @JoinColumn(name = "guide_id")
+    )
+    @Column(name = "challenge_id", nullable = false)
+    private Set<UUID> relatedChallenges = new HashSet<>();
+    
     // Constructor
     public Guide(String title, String description, String coverImage, Set<String> authorIds, Set<Topic> topics) {
         validateTitle(title);
@@ -190,6 +198,25 @@ public class Guide extends AuditableModel {
     public void disassociateFromCourse() {
         this.courseId = null;
         this.status = EntityStatus.PUBLISHED;
+    }
+    
+    // Challenge management
+    public void addChallenge(UUID challengeId) {
+        if (challengeId == null) {
+            throw new IllegalArgumentException("Challenge ID cannot be null");
+        }
+        this.relatedChallenges.add(challengeId);
+    }
+    
+    public void removeChallenge(UUID challengeId) {
+        if (challengeId == null) {
+            throw new IllegalArgumentException("Challenge ID cannot be null");
+        }
+        this.relatedChallenges.remove(challengeId);
+    }
+    
+    public boolean hasChallenge(UUID challengeId) {
+        return this.relatedChallenges.contains(challengeId);
     }
     
     // Query methods

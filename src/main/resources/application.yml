@@ -94,7 +94,8 @@ application:
 # --- Kafka Topics Configuration ---
 kafka:
   topics:
-  # Aquí se definirán los tópicos cuando estén disponibles
+    guide-challenge-added: guides.challenge.added.v1
+  # Aquí se definirán más tópicos cuando estén disponibles
   # Ejemplo:
   # guide-published: guide.published
   # course-created: course.created

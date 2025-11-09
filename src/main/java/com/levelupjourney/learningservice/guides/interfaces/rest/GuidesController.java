@@ -499,6 +499,71 @@ public class GuidesController {
         return ResponseEntity.noContent().build();
     }
 
+    // ==================== CHALLENGE MANAGEMENT ====================
+
+    @PostMapping("/{guideId}/challenges")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Add challenge to guide",
+            description = """
+                    Adds a challenge reference to a guide. This allows students to practice and 
+                    reinforce their learning with related challenges.
+                    - Only guide authors or ADMIN can add challenges
+                    - Publishes event to Kafka topic: guides.challenge.added.v1
+                    - Returns HTTP 201 (Created) on success
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Challenge added successfully",
+                    content = @Content(schema = @Schema(implementation = GuideResource.class))),
+            @ApiResponse(responseCode = "400", description = "Challenge already added to guide"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Guide not found")
+    })
+    public ResponseEntity<GuideResource> addChallengeToGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Challenge UUID", required = true)
+            @RequestParam UUID challengeId
+    ) {
+        var command = new AddChallengeToGuideCommand(guideId, challengeId);
+        var guide = guideCommandService.handle(command)
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        var resource = GuideResourceAssembler.toResourceFromEntity(guide, false, false);
+        return ResponseEntity.status(HttpStatus.CREATED).body(resource);
+    }
+
+    @DeleteMapping("/{guideId}/challenges/{challengeId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Remove challenge from guide",
+            description = """
+                    Removes a challenge reference from a guide.
+                    - Only guide authors or ADMIN can remove challenges
+                    - Returns HTTP 204 (No Content) on success
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Challenge removed successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - user is not an author or admin"),
+            @ApiResponse(responseCode = "404", description = "Guide or challenge not found")
+    })
+    public ResponseEntity<Void> removeChallengeFromGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Challenge UUID", required = true)
+            @PathVariable UUID challengeId
+    ) {
+        var command = new RemoveChallengeFromGuideCommand(guideId, challengeId);
+        guideCommandService.handle(command);
+        return ResponseEntity.noContent().build();
+    }
+
     // ==================== HELPER METHODS ====================
 
 }
