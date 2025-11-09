@@ -5,6 +5,7 @@ import com.levelupjourney.learningservice.guides.domain.model.commands.CreateGui
 import com.levelupjourney.learningservice.guides.domain.model.commands.UpdateGuideCommand;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.CreateGuideResource;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.GuideResource;
+import com.levelupjourney.learningservice.guides.interfaces.rest.resources.GuideSearchResource;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.TopicSummaryResource;
 import com.levelupjourney.learningservice.guides.interfaces.rest.resources.UpdateGuideResource;
 
@@ -53,6 +54,15 @@ public class GuideResourceAssembler {
                 entity.getRelatedChallenges(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
+        );
+    }
+
+    public static GuideSearchResource toSearchResourceFromEntity(Guide entity) {
+        return new GuideSearchResource(
+                entity.getId(),
+                entity.getTitle(),
+                entity.getDescription(),
+                entity.getCoverImage()
         );
     }
 }

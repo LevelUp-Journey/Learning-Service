@@ -2,6 +2,7 @@ package com.levelupjourney.learningservice.guides.application.internal.queryserv
 
 import com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide;
 import com.levelupjourney.learningservice.guides.domain.model.queries.GetGuideByIdQuery;
+import com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuidesByFiltersQuery;
 import com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuidesQuery;
 import com.levelupjourney.learningservice.guides.domain.services.GuideQueryService;
 import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository;
@@ -33,5 +34,17 @@ public class GuideQueryServiceImpl implements GuideQueryService {
         } else {
             return guideRepository.findAllWithDetails(query.pageable());
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Guide> handle(SearchGuidesByFiltersQuery query) {
+        return guideRepository.searchGuidesByFilters(
+                query.title(),
+                query.authorIds(),
+                query.minLikesCount(),
+                query.topicIds(),
+                query.pageable()
+        );
     }
 }

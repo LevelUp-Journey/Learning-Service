@@ -92,6 +92,77 @@ public class GuidesController {
         return ResponseEntity.ok(resources);
     }
 
+    @GetMapping("/search")
+    @Operation(
+            summary = "Search guides by multiple filters",
+            description = """
+                    Advanced guide search with multiple optional filters.
+                    Returns only PUBLISHED guides with basic information (id, title, description, coverImage).
+                    
+                    **Available Filters (all optional):**
+                    - `title`: Partial match search (case-insensitive)
+                    - `authorIds`: Filter by one or more author IDs (comma-separated)
+                    - `likesCount`: Minimum number of likes required
+                    - `topicIds`: Filter by one or more topic IDs (comma-separated UUIDs)
+                    
+                    **Examples:**
+                    - Search by title: `/api/v1/guides/search?title=Java`
+                    - Search by author: `/api/v1/guides/search?authorIds=author123`
+                    - Search by multiple authors: `/api/v1/guides/search?authorIds=author1,author2`
+                    - Search by minimum likes: `/api/v1/guides/search?likesCount=10`
+                    - Search by topics: `/api/v1/guides/search?topicIds=uuid1,uuid2`
+                    - Combined search: `/api/v1/guides/search?title=Spring&likesCount=5&topicIds=uuid1`
+                    
+                    **Pagination:**
+                    - Use `page`, `size`, and `sort` query parameters
+                    - Example: `/api/v1/guides/search?title=Java&page=0&size=20&sort=likesCount,desc`
+                    
+                    **Note:** At least one filter parameter must be provided.
+                    """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Guides retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = Page.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid search criteria - at least one filter must be provided",
+                    content = @Content(schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<Page<com.levelupjourney.learningservice.guides.interfaces.rest.resources.GuideSearchResource>> searchGuidesByFilters(
+            @Parameter(description = "Filter by title (partial match, case-insensitive)", example = "Java Programming")
+            @RequestParam(required = false) String title,
+            @Parameter(description = "Filter by author IDs (comma-separated)", example = "author123,author456")
+            @RequestParam(required = false) Set<String> authorIds,
+            @Parameter(description = "Filter by minimum number of likes", example = "10")
+            @RequestParam(required = false) Integer likesCount,
+            @Parameter(description = "Filter by topic IDs (comma-separated UUIDs)", example = "550e8400-e29b-41d4-a716-446655440000")
+            @RequestParam(required = false) Set<UUID> topicIds,
+            @Parameter(description = "Pagination parameters (page, size, sort)")
+            Pageable pageable
+    ) {
+        // Create the query
+        var query = new com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuidesByFiltersQuery(
+                title,
+                authorIds,
+                likesCount,
+                topicIds,
+                pageable
+        );
+
+        // Validate that at least one search criteria is provided
+        if (!query.hasSearchCriteria()) {
+            throw new com.levelupjourney.learningservice.shared.infrastructure.exception.InvalidSearchCriteriaException(
+                    "At least one search parameter must be provided (title, authorIds, likesCount, or topicIds)"
+            );
+        }
+
+        // Execute the query
+        var guides = guideQueryService.handle(query);
+
+        // Map to search resources
+        var resources = guides.map(GuideResourceAssembler::toSearchResourceFromEntity);
+
+        return ResponseEntity.ok(resources);
+    }
+
     @GetMapping("/teachers/{teacherId}")
     @Operation(
             summary = "Get all guides by teacher ID",

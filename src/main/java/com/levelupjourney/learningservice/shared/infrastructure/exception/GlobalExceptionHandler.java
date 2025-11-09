@@ -102,6 +102,28 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Access denied", HttpStatus.FORBIDDEN.value()));
     }
 
+    @ExceptionHandler(InvalidSearchCriteriaException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidSearchCriteriaException(
+            InvalidSearchCriteriaException ex,
+            HttpServletRequest request
+    ) {
+        log.error("Invalid search criteria: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
+            IllegalArgumentException ex,
+            HttpServletRequest request
+    ) {
+        log.error("Invalid argument: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(
             Exception ex,

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -32,4 +33,23 @@ public interface GuideRepository extends JpaRepository<Guide, UUID> {
     Optional<Guide> findByIdWithDetails(@Param("id") UUID id);
     
     Optional<Guide> findByCourseId(UUID courseId);
+    
+    @Query("""
+            SELECT DISTINCT g FROM Guide g
+            LEFT JOIN g.topics t
+            WHERE g.status = com.levelupjourney.learningservice.shared.domain.model.EntityStatus.PUBLISHED
+            AND (:title IS NULL OR LOWER(g.title) LIKE LOWER(CONCAT('%', :title, '%')))
+            AND (:minLikesCount IS NULL OR g.likesCount >= :minLikesCount)
+            AND (COALESCE(:authorIds, NULL) IS NULL OR EXISTS (
+                SELECT 1 FROM g.authorIds a WHERE a IN :authorIds
+            ))
+            AND (COALESCE(:topicIds, NULL) IS NULL OR t.id IN :topicIds)
+            """)
+    Page<Guide> searchGuidesByFilters(
+            @Param("title") String title,
+            @Param("authorIds") Set<String> authorIds,
+            @Param("minLikesCount") Integer minLikesCount,
+            @Param("topicIds") Set<UUID> topicIds,
+            Pageable pageable
+    );
 }
