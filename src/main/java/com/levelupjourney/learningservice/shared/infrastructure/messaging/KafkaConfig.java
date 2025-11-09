@@ -15,16 +15,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configuración de Kafka para Azure Event Hubs
+ * Configuración de Kafka con soporte condicional para Azure Event Hubs
  * 
- * Esta configuración permite la comunicación del Learning Service con Azure Event Hubs
- * a través del protocolo de Kafka. La configuración principal se encuentra en application.yml
+ * Esta configuración permite usar:
+ * - Azure Event Hubs (cuando IS_AZURE=true): Usa SASL_SSL para conexión segura
+ * - Kafka estándar (cuando IS_AZURE=false): Conexión sin autenticación
  * 
  * Características:
- * - Protocolo SASL_SSL para conexión segura
  * - Serialización JSON para mensajes
- * - Auto-creación de tópicos deshabilitada (gestión manual en Azure)
- * - Configuración de timeouts optimizada para Azure Event Hubs
+ * - Configuración de timeouts optimizada
+ * - Modo condicional basado en variable de entorno IS_AZURE
  */
 @Configuration
 @EnableKafka
@@ -33,8 +33,11 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
     
-    @Value("${spring.kafka.properties.sasl.jaas.config}")
+    @Value("${spring.kafka.properties.sasl.jaas.config:}")
     private String saslJaasConfig;
+    
+    @Value("${kafka.is-azure:false}")
+    private boolean isAzure;
     
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
@@ -42,13 +45,17 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        configProps.put("security.protocol", "SASL_SSL");
-        configProps.put("sasl.mechanism", "PLAIN");
-        configProps.put("sasl.jaas.config", saslJaasConfig);
         configProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 2000);
         configProps.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 2000);
         configProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 3000);
         configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        
+        // Configuración condicional para Azure Event Hubs
+        if (isAzure) {
+            configProps.put("security.protocol", "SASL_SSL");
+            configProps.put("sasl.mechanism", "PLAIN");
+            configProps.put("sasl.jaas.config", saslJaasConfig);
+        }
         
         return new DefaultKafkaProducerFactory<>(configProps);
     }
