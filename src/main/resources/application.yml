@@ -68,6 +68,24 @@ spring:
 server:
   port: ${SERVER_PORT}
 
+# --- Configuración de Swagger/OpenAPI ---
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    filter: true
+    displayRequestDuration: true
+    displayOperationId: false
+  show-actuator: false
+  packages-to-scan: com.levelupjourney.learningservice
+  paths-to-match: /api/**
+
 # JWT Configuration (Only for token decryption)
 # IMPORTANT: Use the same secret as the Auth Service to decrypt tokens
 # The secret must be at least 512 bits (64 bytes) for HS512 algorithm
