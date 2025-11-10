@@ -36,6 +36,19 @@ public interface GuideRepository extends JpaRepository<Guide, UUID> {
     
     @Query("""
             SELECT DISTINCT g FROM Guide g
+            LEFT JOIN FETCH g.topics
+            LEFT JOIN FETCH g.pages
+            WHERE (:status IS NULL OR g.status = :status)
+            AND (:authorId IS NULL OR :authorId MEMBER OF g.authorIds)
+            """)
+    Page<Guide> findByStatusAndAuthorId(
+            @Param("status") EntityStatus status,
+            @Param("authorId") String authorId,
+            Pageable pageable
+    );
+    
+    @Query("""
+            SELECT DISTINCT g FROM Guide g
             LEFT JOIN g.topics t
             WHERE g.status = com.levelupjourney.learningservice.shared.domain.model.EntityStatus.PUBLISHED
             AND (:title IS NULL OR LOWER(g.title) LIKE LOWER(CONCAT('%', :title, '%')))

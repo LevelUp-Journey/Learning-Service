@@ -6,6 +6,7 @@ import com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuid
 import com.levelupjourney.learningservice.guides.domain.model.queries.SearchGuidesQuery;
 import com.levelupjourney.learningservice.guides.domain.services.GuideQueryService;
 import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository;
+import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -28,12 +29,24 @@ public class GuideQueryServiceImpl implements GuideQueryService {
     @Override
     @Transactional(readOnly = true)
     public Page<Guide> handle(SearchGuidesQuery query) {
-        // Simplified: just get by status or all
-        if (query.status() != null) {
-            return guideRepository.findByStatusWithDetails(query.status(), query.pageable());
-        } else {
-            return guideRepository.findAllWithDetails(query.pageable());
+        // Determine filtering based on the query parameters
+        EntityStatus status = query.status();
+        String userId = query.userId();
+        
+        // If userId is provided (teacher dashboard), filter by author and ignore status filter
+        if (userId != null) {
+            // Teacher dashboard: ALL guides belonging to this user (DRAFT and PUBLISHED)
+            return guideRepository.findByStatusAndAuthorId(null, userId, query.pageable());
         }
+        
+        // If status is provided, filter by status only (usually PUBLISHED)
+        if (status != null) {
+            // Public view: Only guides with specific status (usually PUBLISHED)
+            return guideRepository.findByStatusWithDetails(status, query.pageable());
+        }
+        
+        // Fallback: return all guides (should not happen in normal flow)
+        return guideRepository.findAllWithDetails(query.pageable());
     }
 
     @Override

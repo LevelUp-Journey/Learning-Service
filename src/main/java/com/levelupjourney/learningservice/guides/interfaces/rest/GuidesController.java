@@ -79,32 +79,51 @@ public class GuidesController {
     public ResponseEntity<Page<GuideResource>> getAllGuides(
             @Parameter(description = "Special filter: 'dashboard' for teachers to see their own guides")
             @RequestParam(name = "for", required = false) String forParam,
+
             @Parameter(description = "Filter by title (partial match, case-insensitive)")
             @RequestParam(required = false) String title,
+
             @Parameter(description = "Filter by topic IDs (comma-separated UUIDs)")
             @RequestParam(required = false) Set<UUID> topicIds,
+
             @Parameter(description = "Filter by author IDs (comma-separated)")
             @RequestParam(required = false) Set<String> authorIds,
+
             @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        EntityStatus status = EntityStatus.PUBLISHED;
-        String currentUserId = null;
-        Set<String> filterByAuthorIds = authorIds;
-
+        // Default: Everyone sees only PUBLISHED guides
+        EntityStatus statusFilter = EntityStatus.PUBLISHED;
+        String userIdFilter = null;
+        
         // Check if teacher is requesting their dashboard
         boolean isDashboardRequest = "dashboard".equalsIgnoreCase(forParam);
-        boolean isTeacher = securityHelper.isAuthenticated() && securityHelper.hasRole("ROLE_TEACHER");
+        boolean isAuthenticated = securityHelper.isAuthenticated();
+        boolean isTeacher = isAuthenticated && securityHelper.hasRole("ROLE_TEACHER");
         
+        // CASE 1: ONLY TEACHER with for=dashboard -> Show ONLY their guides (all statuses)
+        // Note: Students or other roles with for=dashboard are IGNORED and treated as public view
         if (isDashboardRequest && isTeacher) {
-            // Teacher dashboard: show ALL their own guides (DRAFT and PUBLISHED)
-            currentUserId = securityHelper.getCurrentUserId();
-            status = null; // Allow all statuses
-            filterByAuthorIds = Set.of(currentUserId); // Override to only show their guides
+            userIdFilter = securityHelper.getCurrentUserId();
+            statusFilter = null; // Don't filter by status, show DRAFT and PUBLISHED
         }
-        // Otherwise: Everyone (including teachers without for=dashboard) sees only PUBLISHED guides
-
-        var query = new SearchGuidesQuery(title, topicIds, filterByAuthorIds, status, currentUserId, pageable);
+        // CASE 2: Anyone else (students, teachers without for=dashboard, unauthenticated)
+        // -> Show ONLY PUBLISHED guides
+        // This includes:
+        // - Students (even if they try for=dashboard, it's ignored)
+        // - Teachers without for=dashboard
+        // - Unauthenticated users
+        
+        // Build query - ignore other filters for now if it's dashboard
+        SearchGuidesQuery query;
+        if (userIdFilter != null) {
+            // Dashboard: only filter by userId
+            query = new SearchGuidesQuery(null, null, null, statusFilter, userIdFilter, pageable);
+        } else {
+            // Public: filter by status (PUBLISHED)
+            query = new SearchGuidesQuery(title, topicIds, authorIds, statusFilter, null, pageable);
+        }
+        
         var guides = guideQueryService.handle(query);
 
         var resources = guides.map(guide ->
