@@ -12,6 +12,7 @@ import com.levelupjourney.learningservice.guides.interfaces.rest.resources.*;
 import com.levelupjourney.learningservice.guides.interfaces.rest.transform.GuideResourceAssembler;
 import com.levelupjourney.learningservice.guides.interfaces.rest.transform.PageResourceAssembler;
 import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
+import com.levelupjourney.learningservice.shared.infrastructure.exception.InvalidSearchCriteriaException;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.ResourceNotFoundException;
 import com.levelupjourney.learningservice.shared.infrastructure.security.SecurityContextHelper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -50,20 +51,34 @@ public class GuidesController {
 
     @GetMapping
     @Operation(
-            summary = "Search guides with filters",
+            summary = "Get all guides with optional filters",
             description = """
-                    Search and filter guides by title, topics, and authors.
-                    - Students: Only PUBLISHED guides are visible
-                    - Teachers: PUBLISHED guides + guides where they are authors
-                    - Supports pagination with page, size, and sort parameters
-                    Example: /api/v1/guides?title=Java&topicIds=uuid1,uuid2&page=0&size=20&sort=createdAt,desc
+                    Retrieve guides with optional filtering.
+                    
+                    **Authorization Rules:**
+                    - **Students (ROLE_STUDENT)**: Only see PUBLISHED guides
+                    - **Teachers (ROLE_TEACHER) without `for=dashboard`**: Only see PUBLISHED guides
+                    - **Teachers (ROLE_TEACHER) with `for=dashboard`**: See ALL their own guides (DRAFT and PUBLISHED)
+                    - **Unauthenticated users**: Only see PUBLISHED guides
+                    
+                    **Parameters:**
+                    - `for=dashboard`: Special parameter for teachers to see their own guides
+                    - `title`, `topicIds`, `authorIds`: Optional filters
+                    - Standard pagination: page, size, sort
+                    
+                    **Examples:**
+                    - Public view: `/api/v1/guides`
+                    - Teacher dashboard: `/api/v1/guides?for=dashboard`
+                    - Filtered search: `/api/v1/guides?title=Java&page=0&size=20`
                     """
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Guides retrieved successfully (paginated)",
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
-    public ResponseEntity<Page<GuideResource>> searchGuides(
+    public ResponseEntity<Page<GuideResource>> getAllGuides(
+            @Parameter(description = "Special filter: 'dashboard' for teachers to see their own guides")
+            @RequestParam(name = "for", required = false) String forParam,
             @Parameter(description = "Filter by title (partial match, case-insensitive)")
             @RequestParam(required = false) String title,
             @Parameter(description = "Filter by topic IDs (comma-separated UUIDs)")
@@ -73,16 +88,23 @@ public class GuidesController {
             @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        // Simplified: just get by status or all
-        EntityStatus status = null;
+        EntityStatus status = EntityStatus.PUBLISHED;
+        String currentUserId = null;
+        Set<String> filterByAuthorIds = authorIds;
 
-        if (!securityHelper.isAuthenticated() || !securityHelper.hasRole("ROLE_TEACHER")) {
-            // Unauthenticated users and students see only PUBLISHED guides
-            status = EntityStatus.PUBLISHED;
+        // Check if teacher is requesting their dashboard
+        boolean isDashboardRequest = "dashboard".equalsIgnoreCase(forParam);
+        boolean isTeacher = securityHelper.isAuthenticated() && securityHelper.hasRole("ROLE_TEACHER");
+        
+        if (isDashboardRequest && isTeacher) {
+            // Teacher dashboard: show ALL their own guides (DRAFT and PUBLISHED)
+            currentUserId = securityHelper.getCurrentUserId();
+            status = null; // Allow all statuses
+            filterByAuthorIds = Set.of(currentUserId); // Override to only show their guides
         }
-        // Teachers see all guides (status = null)
+        // Otherwise: Everyone (including teachers without for=dashboard) sees only PUBLISHED guides
 
-        var query = new SearchGuidesQuery(title, topicIds, authorIds, status, null, pageable);
+        var query = new SearchGuidesQuery(title, topicIds, filterByAuthorIds, status, currentUserId, pageable);
         var guides = guideQueryService.handle(query);
 
         var resources = guides.map(guide ->
@@ -149,7 +171,7 @@ public class GuidesController {
 
         // Validate that at least one search criteria is provided
         if (!query.hasSearchCriteria()) {
-            throw new com.levelupjourney.learningservice.shared.infrastructure.exception.InvalidSearchCriteriaException(
+            throw new InvalidSearchCriteriaException(
                     "At least one search parameter must be provided (title, authorIds, likesCount, or topicIds)"
             );
         }
@@ -167,15 +189,19 @@ public class GuidesController {
     @Operation(
             summary = "Get all guides by teacher ID",
             description = """
-                    Retrieves all guides where the specified teacher is an author.
-                    - Returns guides of all statuses (DRAFT, PUBLISHED, etc.)
-                    - Useful for viewing a teacher's complete guide portfolio
-                    - Supports pagination with page, size, and sort parameters
-                    Example: /api/v1/guides/teachers/123?page=0&size=20&sort=createdAt,desc
+                    Retrieves guides by a specific teacher.
+                    
+                    **Authorization Rules:**
+                    - Always returns only PUBLISHED guides (public portfolio view)
+                    - For teachers to see their own DRAFT guides, use `/api/v1/guides?for=dashboard`
+                    
+                    **Use Case:** Public view of a teacher's published content portfolio
+                    
+                    Example: `/api/v1/guides/teachers/teacher123?page=0&size=20&sort=createdAt,desc`
                     """
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Teacher's guides retrieved successfully (paginated)",
+            @ApiResponse(responseCode = "200", description = "Teacher's published guides retrieved successfully (paginated)",
                     content = @Content(schema = @Schema(implementation = Page.class)))
     })
     public ResponseEntity<Page<GuideResource>> getGuidesByTeacherId(
@@ -184,31 +210,30 @@ public class GuidesController {
             @Parameter(description = "Pagination parameters (page, size, sort)")
             Pageable pageable
     ) {
-        // Simplified: get all guides and filter in memory
-        var query = new SearchGuidesQuery(null, null, null, null, null, pageable);
+        // Only show PUBLISHED guides (public portfolio)
+        var query = new SearchGuidesQuery(null, null, Set.of(teacherId), EntityStatus.PUBLISHED, null, pageable);
         var guides = guideQueryService.handle(query);
 
-        // Filter by teacher ID in memory
-        var filteredGuides = guides.getContent().stream()
-                .filter(guide -> guide.getAuthorIds().contains(teacherId))
-                .toList();
+        var resources = guides.map(guide -> 
+                GuideResourceAssembler.toResourceFromEntity(guide, false, false)
+        );
 
-        var resources = filteredGuides.stream()
-                .map(guide -> GuideResourceAssembler.toResourceFromEntity(guide, false, false))
-                .toList();
-
-        // Return as a simple response (not paginated for now, for simplicity)
-        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
-                resources,
-                pageable,
-                filteredGuides.size()
-        ));
+        return ResponseEntity.ok(resources);
     }
 
     @GetMapping("/{guideId}")
     @Operation(
             summary = "Get guide by ID with pages",
-            description = "Retrieves a guide with all its pages. DRAFT guides are only visible to authors and admins."
+            description = """
+                    Retrieves a guide with all its pages.
+                    
+                    **Authorization Rules:**
+                    - **PUBLISHED guides**: Any authenticated user can view
+                    - **DRAFT guides**: Only the guide authors can view
+                    - **Unauthenticated users**: Can only view PUBLISHED guides
+                    
+                    Returns 404 if guide doesn't exist or user doesn't have permission to view it.
+                    """
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Guide found",
@@ -222,13 +247,20 @@ public class GuidesController {
         var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
                 .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
 
-        // Check access: DRAFT guides only visible to authors and admins
-        if (guide.getStatus() == EntityStatus.DRAFT) {
-            String userId = securityHelper.getCurrentUserId();
-            boolean isAuthor = userId != null && guide.isAuthor(userId);
-            boolean isAdmin = securityHelper.isAdmin();
+        // Authorization check
+        if (guide.getStatus() == EntityStatus.PUBLISHED) {
+            // PUBLISHED guides: anyone can view (just needs authentication)
+            // No additional checks needed
+        } else {
+            // DRAFT or other statuses: only authors can view
+            if (!securityHelper.isAuthenticated()) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
             
-            if (!isAuthor && !isAdmin) {
+            String currentUserId = securityHelper.getCurrentUserId();
+            boolean isAuthor = currentUserId != null && guide.isAuthor(currentUserId);
+            
+            if (!isAuthor) {
                 throw new ResourceNotFoundException("Guide not found");
             }
         }
@@ -411,10 +443,14 @@ public class GuidesController {
             summary = "Get all pages of a guide",
             description = """
                     Lists all pages of a guide in order.
-                    - Pages are returned sorted by `order` field
-                    - Anonymous users can see pages of PUBLISHED guides
-                    - Authors/admins can see pages of their DRAFT guides
-                    - Returns 404 if guide not found or not accessible
+                    
+                    **Authorization Rules:**
+                    - **PUBLISHED guides**: Any authenticated user can view pages
+                    - **DRAFT guides**: Only guide authors can view pages
+                    - **Unauthenticated users**: Can only view pages of PUBLISHED guides
+                    
+                    Pages are returned sorted by `order` field.
+                    Returns 404 if guide not found or user doesn't have permission to view it.
                     """)
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Pages retrieved successfully"),
@@ -424,6 +460,27 @@ public class GuidesController {
             @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId
     ) {
+        // First, verify guide access using the same logic as getGuideById
+        var guide = guideQueryService.handle(new GetGuideByIdQuery(guideId))
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        // Authorization check
+        if (guide.getStatus() == EntityStatus.PUBLISHED) {
+            // PUBLISHED guides: anyone can view pages
+        } else {
+            // DRAFT or other statuses: only authors can view
+            if (!securityHelper.isAuthenticated()) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
+            
+            String currentUserId = securityHelper.getCurrentUserId();
+            boolean isAuthor = currentUserId != null && guide.isAuthor(currentUserId);
+            
+            if (!isAuthor) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
+        }
+
         var pages = pageQueryService.handle(new GetPagesByGuideIdQuery(guideId));
         var resources = pages.stream()
                 .map(PageResourceAssembler::toResourceFromEntity)
@@ -437,10 +494,14 @@ public class GuidesController {
             summary = "Get specific page details",
             description = """
                     Retrieves a specific page by its ID.
-                    - Verifies page belongs to the specified guide
-                    - Anonymous users can see pages of PUBLISHED guides
-                    - Authors/admins can see pages of their DRAFT guides
-                    - Returns 404 if page not found, wrong guide, or guide not accessible
+                    
+                    **Authorization Rules:**
+                    - **PUBLISHED guides**: Any authenticated user can view the page
+                    - **DRAFT guides**: Only guide authors can view the page
+                    - **Unauthenticated users**: Can only view pages of PUBLISHED guides
+                    
+                    Verifies page belongs to the specified guide.
+                    Returns 404 if page not found, wrong guide, or guide not accessible.
                     """)
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Page retrieved successfully",
@@ -459,6 +520,26 @@ public class GuidesController {
         // Verify page belongs to guide
         if (!page.getGuide().getId().equals(guideId)) {
             throw new ResourceNotFoundException("Page not found in this guide");
+        }
+
+        // Get the guide to check authorization
+        var guide = page.getGuide();
+
+        // Authorization check
+        if (guide.getStatus() == EntityStatus.PUBLISHED) {
+            // PUBLISHED guides: anyone can view pages
+        } else {
+            // DRAFT or other statuses: only authors can view
+            if (!securityHelper.isAuthenticated()) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
+            
+            String currentUserId = securityHelper.getCurrentUserId();
+            boolean isAuthor = currentUserId != null && guide.isAuthor(currentUserId);
+            
+            if (!isAuthor) {
+                throw new ResourceNotFoundException("Guide not found");
+            }
         }
 
         var resource = PageResourceAssembler.toResourceFromEntity(page);
@@ -594,9 +675,9 @@ public class GuidesController {
             @ApiResponse(responseCode = "404", description = "Guide not found")
     })
     public ResponseEntity<GuideResource> addChallengeToGuide(
-            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
-            @io.swagger.v3.oas.annotations.Parameter(description = "Challenge UUID", required = true)
+            @Parameter(description = "Challenge UUID", required = true)
             @RequestParam UUID challengeId
     ) {
         var command = new AddChallengeToGuideCommand(guideId, challengeId);
