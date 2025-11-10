@@ -672,7 +672,7 @@ public class GuidesController {
 
     // ==================== CHALLENGE MANAGEMENT ====================
 
-    @PostMapping("/{guideId}/challenges")
+    @PostMapping("/{guideId}/challenges/{challengeId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Add challenge to guide",
@@ -697,7 +697,7 @@ public class GuidesController {
             @Parameter(description = "Guide UUID", required = true)
             @PathVariable UUID guideId,
             @Parameter(description = "Challenge UUID", required = true)
-            @RequestParam UUID challengeId
+            @PathVariable UUID challengeId
     ) {
         var command = new AddChallengeToGuideCommand(guideId, challengeId);
         var guide = guideCommandService.handle(command)
