@@ -13,4 +13,6 @@ public interface GuideCommandService {
     Optional<Guide> handle(AddChallengeToGuideCommand command);
     Optional<Guide> handle(RemoveChallengeFromGuideCommand command);
     void handle(DeleteGuideCommand command);
+    void handle(LikeGuideCommand command);
+    void handle(UnlikeGuideCommand command);
 }

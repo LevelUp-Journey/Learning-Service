@@ -2,8 +2,10 @@ package com.levelupjourney.learningservice.guides.application.internal.commandse
 
 import com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide;
 import com.levelupjourney.learningservice.guides.domain.model.commands.*;
+import com.levelupjourney.learningservice.guides.domain.model.entities.GuideLike;
 import com.levelupjourney.learningservice.guides.domain.model.events.GuideChallengeAddedEvent;
 import com.levelupjourney.learningservice.guides.domain.services.GuideCommandService;
+import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideLikeRepository;
 import com.levelupjourney.learningservice.guides.infrastructure.persistence.jpa.repositories.GuideRepository;
 import com.levelupjourney.learningservice.shared.domain.model.EntityStatus;
 import com.levelupjourney.learningservice.shared.infrastructure.exception.BusinessException;
@@ -28,6 +30,7 @@ public class GuideCommandServiceImpl implements GuideCommandService {
 
     private final GuideRepository guideRepository;
     private final TopicRepository topicRepository;
+    private final GuideLikeRepository guideLikeRepository;
     private final SecurityContextHelper securityHelper;
     private final KafkaEventPublisher kafkaEventPublisher;
 
@@ -184,6 +187,45 @@ public class GuideCommandServiceImpl implements GuideCommandService {
         // Remove challenge from guide
         guide.removeChallenge(command.challengeId());
         return Optional.of(guideRepository.save(guide));
+    }
+
+    @Override
+    @Transactional
+    public void handle(LikeGuideCommand command) {
+        // Verify guide exists
+        var guide = guideRepository.findById(command.guideId())
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        // Check if user already liked this guide
+        if (guideLikeRepository.existsByGuideIdAndUserId(command.guideId(), command.userId())) {
+            throw new BusinessException("You already liked this guide", HttpStatus.BAD_REQUEST);
+        }
+
+        // Create like
+        var like = new GuideLike(guide, command.userId());
+        guideLikeRepository.save(like);
+
+        // Update likes count in guide
+        guide.incrementLikes();
+        guideRepository.save(guide);
+    }
+
+    @Override
+    @Transactional
+    public void handle(UnlikeGuideCommand command) {
+        // Verify guide exists
+        var guide = guideRepository.findById(command.guideId())
+                .orElseThrow(() -> new ResourceNotFoundException("Guide not found"));
+
+        // Find and delete like
+        var like = guideLikeRepository.findByGuideIdAndUserId(command.guideId(), command.userId())
+                .orElseThrow(() -> new BusinessException("You haven't liked this guide", HttpStatus.BAD_REQUEST));
+
+        guideLikeRepository.delete(like);
+
+        // Update likes count in guide
+        guide.decrementLikes();
+        guideRepository.save(guide);
     }
 
     private void checkAuthorization(Guide guide) {

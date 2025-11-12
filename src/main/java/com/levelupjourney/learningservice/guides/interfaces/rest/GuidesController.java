@@ -48,6 +48,7 @@ public class GuidesController {
     private final PageCommandService pageCommandService;
     private final PageQueryService pageQueryService;
     private final SecurityContextHelper securityHelper;
+    private final com.levelupjourney.learningservice.guides.application.internal.queryservices.GuideLikeQueryService guideLikeQueryService;
 
     @GetMapping
     @Operation(
@@ -126,8 +127,22 @@ public class GuidesController {
         
         var guides = guideQueryService.handle(query);
 
+        // Get current user ID if authenticated
+        String currentUserId = securityHelper.isAuthenticated() ? securityHelper.getCurrentUserId() : null;
+        
+        // Get all guide IDs
+        var guideIds = guides.stream().map(com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        // Get liked guides by user
+        var likedGuideIds = guideLikeQueryService.getGuidesLikedByUser(guideIds, currentUserId);
+
         var resources = guides.map(guide ->
-                GuideResourceAssembler.toResourceFromEntity(guide, false, false)
+                GuideResourceAssembler.toResourceFromEntity(
+                        guide, 
+                        likedGuideIds.contains(guide.getId()), 
+                        false
+                )
         );
 
         return ResponseEntity.ok(resources);
@@ -233,8 +248,22 @@ public class GuidesController {
         var query = new SearchGuidesQuery(null, null, Set.of(teacherId), EntityStatus.PUBLISHED, null, pageable);
         var guides = guideQueryService.handle(query);
 
+        // Get current user ID if authenticated
+        String currentUserId = securityHelper.isAuthenticated() ? securityHelper.getCurrentUserId() : null;
+        
+        // Get all guide IDs
+        var guideIds = guides.stream().map(com.levelupjourney.learningservice.guides.domain.model.aggregates.Guide::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        
+        // Get liked guides by user
+        var likedGuideIds = guideLikeQueryService.getGuidesLikedByUser(guideIds, currentUserId);
+
         var resources = guides.map(guide -> 
-                GuideResourceAssembler.toResourceFromEntity(guide, false, false)
+                GuideResourceAssembler.toResourceFromEntity(
+                        guide, 
+                        likedGuideIds.contains(guide.getId()), 
+                        false
+                )
         );
 
         return ResponseEntity.ok(resources);
@@ -284,7 +313,11 @@ public class GuidesController {
             }
         }
 
-        var resource = GuideResourceAssembler.toResourceFromEntity(guide, false, true);
+        // Check if current user has liked this guide
+        String currentUserId = securityHelper.isAuthenticated() ? securityHelper.getCurrentUserId() : null;
+        boolean hasLiked = guideLikeQueryService.hasUserLikedGuide(guideId, currentUserId);
+
+        var resource = GuideResourceAssembler.toResourceFromEntity(guide, hasLiked, true);
         return ResponseEntity.ok(resource);
     }
 
@@ -731,6 +764,64 @@ public class GuidesController {
             @PathVariable UUID challengeId
     ) {
         var command = new RemoveChallengeFromGuideCommand(guideId, challengeId);
+        guideCommandService.handle(command);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ==================== GUIDE LIKES ====================
+
+    @PostMapping("/{guideId}/like")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Like a guide",
+            description = """
+                    Add a like to a guide. Users can only like a guide once.
+                    - Requires authentication
+                    - Returns 400 if user already liked this guide
+                    - Increments the guide's likes count
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Guide liked successfully"),
+            @ApiResponse(responseCode = "400", description = "User already liked this guide"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "404", description = "Guide not found")
+    })
+    public ResponseEntity<Void> likeGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId
+    ) {
+        String userId = securityHelper.getCurrentUserId();
+        var command = new LikeGuideCommand(guideId, userId);
+        guideCommandService.handle(command);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{guideId}/like")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Unlike a guide",
+            description = """
+                    Remove a like from a guide.
+                    - Requires authentication
+                    - Returns 400 if user hasn't liked this guide
+                    - Decrements the guide's likes count
+                    """,
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Guide unliked successfully"),
+            @ApiResponse(responseCode = "400", description = "User hasn't liked this guide"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - no valid JWT token"),
+            @ApiResponse(responseCode = "404", description = "Guide not found")
+    })
+    public ResponseEntity<Void> unlikeGuide(
+            @io.swagger.v3.oas.annotations.Parameter(description = "Guide UUID", required = true)
+            @PathVariable UUID guideId
+    ) {
+        String userId = securityHelper.getCurrentUserId();
+        var command = new UnlikeGuideCommand(guideId, userId);
         guideCommandService.handle(command);
         return ResponseEntity.noContent().build();
     }
