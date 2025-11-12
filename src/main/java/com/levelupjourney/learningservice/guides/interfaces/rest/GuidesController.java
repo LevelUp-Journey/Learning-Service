@@ -770,7 +770,7 @@ public class GuidesController {
 
     // ==================== GUIDE LIKES ====================
 
-    @PostMapping("/{guideId}/like")
+    @PostMapping("/{guideId}/likes")
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Like a guide",
@@ -798,7 +798,7 @@ public class GuidesController {
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/{guideId}/like")
+    @DeleteMapping("/{guideId}/likes")
     @PreAuthorize("isAuthenticated()")
     @Operation(
             summary = "Unlike a guide",
